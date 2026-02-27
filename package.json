@@ -6,20 +6,28 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "storybook": "start-storybook -p 6006 -s public"
   },
   "dependencies": {
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "react-dom": "19.2.3",
+    "start-storybook": "^1.0.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@storybook/addon-essentials": "^8.6.14",
+    "@storybook/cli": "^10.2.13",
+    "@storybook/react": "^8.6.17",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
+    "msw": "^2.12.10",
+    "playwright": "^1.58.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

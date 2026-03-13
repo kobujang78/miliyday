@@ -15,8 +15,14 @@ export default function MyPage() {
   const { profile, signOut, updateProfile } = useAuth()
 
   const [showRankEdit, setShowRankEdit] = useState(false)
+  const [showInfoEdit, setShowInfoEdit] = useState(false)
   const [inviteCode, setInviteCode] = useState('')
   const [generatedCode, setGeneratedCode] = useState('')
+
+  // Editing state for profile
+  const [editName, setEditName] = useState('')
+  const [editBranch, setEditBranch] = useState<Branch>('army')
+  const [editEnlistDate, setEditEnlistDate] = useState('')
 
   const handleSignOut = async () => {
     if (confirm('로그아웃 하시겠습니까?')) {
@@ -29,6 +35,24 @@ export default function MyPage() {
   const branch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   const rank = (profile?.rank_level as RankLevel) || 1
+
+  // Initialize editing state when modal opens
+  useEffect(() => {
+    if (showInfoEdit) {
+      setEditName(name)
+      setEditBranch(branch)
+      setEditEnlistDate(enlistDate)
+    }
+  }, [showInfoEdit, name, branch, enlistDate])
+
+  const handleSaveInfo = () => {
+    updateProfile({
+      display_name: editName,
+      branch: editBranch,
+      enlist_date: editEnlistDate
+    })
+    setShowInfoEdit(false)
+  }
 
   // We'll load rankOverride from localStorage specifically since AuthProvider doesn't strictly type it yet
   const [rankOverride, setRankOverrideLocal] = useState<number | null>(null)
@@ -80,7 +104,22 @@ export default function MyPage() {
         background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`,
         borderRadius: '20px', padding: '24px', color: '#fff',
         boxShadow: `0 8px 24px ${accentColor}40`,
+        position: 'relative',
       }}>
+        {/* 정보 수정 버튼 */}
+        <button 
+          onClick={() => setShowInfoEdit(true)}
+          style={{
+            position: 'absolute', top: '16px', right: '16px',
+            border: 'none', background: 'rgba(255,255,255,0.2)',
+            width: '32px', height: '32px', borderRadius: '50%',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            cursor: 'pointer', color: '#fff', fontSize: '14px',
+          }}
+        >
+          ⚙️
+        </button>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
           <div style={{
             width: '56px', height: '56px', borderRadius: '50%',
@@ -122,19 +161,89 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* ── 계급/복무기간 카드 (홈 화면에서 이동됨) ── */}
+      {/* ── 내 정보 수정 모달 ── */}
+      {showInfoEdit && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 100,
+          background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '20px',
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '24px', width: '100%', maxWidth: '400px',
+            padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
+          }}>
+            <h3 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>내 정보 수정</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>이름</label>
+                <input 
+                  type="text" value={editName} onChange={e => setEditName(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}
+                />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>병종</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {BRANCHES.map(b => (
+                    <button 
+                      key={b.value}
+                      onClick={() => setEditBranch(b.value as Branch)}
+                      style={{
+                        padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+                        border: `2px solid ${editBranch === b.value ? accentColor : '#f1f5f9'}`,
+                        background: editBranch === b.value ? `${accentColor}10` : '#fff',
+                        color: editBranch === b.value ? accentColor : '#64748b',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {b.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>입대일</label>
+                <input 
+                  type="date" value={editEnlistDate} onChange={e => setEditEnlistDate(e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', colorScheme: 'light' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+              <button 
+                onClick={() => setShowInfoEdit(false)}
+                style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#f1f5f9', color: '#64748b', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                취소
+              </button>
+              <button 
+                onClick={handleSaveInfo}
+                style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: accentColor, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                저장하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 계급/복무기간 카드 ── */}
       <div style={{
         background: '#fff', borderRadius: '20px', padding: '20px',
         boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>내 계급</h3>
+          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>내 진급 상황</h3>
           <button onClick={() => setShowRankEdit(!showRankEdit)} style={{
             border: 'none', background: showRankEdit ? '#f1f5f9' : 'transparent',
             fontSize: '11px', color: '#6b7280', cursor: 'pointer',
             padding: '4px 8px', borderRadius: '8px',
           }}>
-            {showRankEdit ? '닫기' : '✏️ 수정'}
+            {showRankEdit ? '닫기' : '✏️ 수동 조정'}
           </button>
         </div>
 

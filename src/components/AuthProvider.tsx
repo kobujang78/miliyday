@@ -19,6 +19,8 @@ interface AuthContextType {
     loading: boolean
     isGuest: boolean
     signInWithGoogle: () => Promise<void>
+    signInWithEmail: (email: string, password: string) => Promise<{ error: any }>
+    signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>
     signOut: () => Promise<void>
     setGuestMode: () => void
     refreshProfile: () => Promise<void>
@@ -27,7 +29,10 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
     user: null, profile: null, loading: true, isGuest: false,
-    signInWithGoogle: async () => { }, signOut: async () => { },
+    signInWithGoogle: async () => { },
+    signInWithEmail: async () => ({ error: 'Not implemented' }),
+    signUpWithEmail: async () => ({ error: 'Not implemented' }),
+    signOut: async () => { },
     setGuestMode: () => { }, refreshProfile: async () => { },
     updateProfile: () => { },
 })
@@ -112,10 +117,23 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         })
     }
 
+    const signInWithEmail = async (email: string, password: string) => {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+        if (data.user) setUser(data.user)
+        return { error }
+    }
+
+    const signUpWithEmail = async (email: string, password: string) => {
+        const { data, error } = await supabase.auth.signUp({ email, password })
+        if (data.user) setUser(data.user)
+        return { error }
+    }
+
     const signOut = async () => {
         await supabase.auth.signOut()
         localStorage.removeItem('mili_guest')
         localStorage.removeItem('mili_profile')
+        localStorage.removeItem('mili_onboarded')
         setUser(null)
         setProfile(null)
         setIsGuest(false)
@@ -152,7 +170,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     return (
         <AuthContext.Provider value={{
             user, profile, loading, isGuest,
-            signInWithGoogle, signOut, setGuestMode, refreshProfile,
+            signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, setGuestMode, refreshProfile,
             updateProfile,
         }}>
             {children}

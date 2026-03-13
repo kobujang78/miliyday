@@ -1,4 +1,4 @@
-import { rest } from 'msw'
+import { http, HttpResponse } from 'msw'
 
 let posts = [
   { id: 1, title: '훈련소 팁', body: '물 잘 챙겨라.', category: '훈련소' },
@@ -12,53 +12,54 @@ let feed = [
 
 export const handlers = [
   // Posts CRUD
-  rest.get('/api/posts', (req, res, ctx) => {
-    return res(ctx.status(200), ctx.json({ posts }))
+  http.get('/api/posts', () => {
+    return HttpResponse.json({ posts })
   }),
-  rest.post('/api/posts', async (req, res, ctx) => {
-    const body = await req.json()
+  http.post('/api/posts', async ({ request }) => {
+    const body = await request.json() as any
     const next = { id: Date.now(), ...body }
     posts.unshift(next)
-    return res(ctx.status(201), ctx.json(next))
+    return HttpResponse.json(next, { status: 201 })
   }),
-  rest.patch('/api/posts/:id', async (req, res, ctx) => {
-    const id = Number(req.params.id)
-    const body = await req.json()
+  http.patch('/api/posts/:id', async ({ params, request }) => {
+    const id = Number(params.id)
+    const body = await request.json() as any
     posts = posts.map(p => (p.id === id ? { ...p, ...body } : p))
-    return res(ctx.status(200), ctx.json(posts.find(p=>p.id===id)))
+    return HttpResponse.json(posts.find(p => p.id === id))
   }),
-  rest.delete('/api/posts/:id', (req, res, ctx) => {
-    const id = Number(req.params.id)
+  http.delete('/api/posts/:id', ({ params }) => {
+    const id = Number(params.id)
     posts = posts.filter(p => p.id !== id)
-    return res(ctx.status(204))
+    return new HttpResponse(null, { status: 204 })
   }),
 
   // Market CRUD
-  rest.get('/api/market', (req, res, ctx) => {
-    return res(ctx.status(200), ctx.json({ items: market }))
+  http.get('/api/market', () => {
+    return HttpResponse.json({ items: market })
   }),
-  rest.post('/api/market', async (req, res, ctx) => {
-    const body = await req.json()
+  http.post('/api/market', async ({ request }) => {
+    const body = await request.json() as any
     const next = { id: Date.now(), ...body }
     market.unshift(next)
-    return res(ctx.status(201), ctx.json(next))
+    return HttpResponse.json(next, { status: 201 })
   }),
 
   // Feed CRUD
-  rest.get('/api/feed', (req, res, ctx) => {
-    return res(ctx.status(200), ctx.json({ feed }))
+  http.get('/api/feed', () => {
+    return HttpResponse.json({ feed })
   }),
-  rest.post('/api/feed', async (req, res, ctx) => {
-    const body = await req.json()
+  http.post('/api/feed', async ({ request }) => {
+    const body = await request.json() as any
     const next = { id: Date.now(), ...body }
     feed.unshift(next)
-    return res(ctx.status(201), ctx.json(next))
+    return HttpResponse.json(next, { status: 201 })
   }),
 
   // Simple dday endpoint
-  rest.get('/api/dday', (req, res, ctx) => {
-    const enlist = req.url.searchParams.get('enlistmentDate') || ''
-    const branch = (req.url.searchParams.get('branch') || 'army') as string
-    return res(ctx.status(200), ctx.json({ enlistmentDate: enlist, branch, message: 'mocked dday endpoint' }))
+  http.get('/api/dday', ({ request }) => {
+    const url = new URL(request.url)
+    const enlist = url.searchParams.get('enlistmentDate') || ''
+    const branch = url.searchParams.get('branch') || 'army'
+    return HttpResponse.json({ enlistmentDate: enlist, branch, message: 'mocked dday endpoint' })
   }),
 ]

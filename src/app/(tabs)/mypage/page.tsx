@@ -88,7 +88,7 @@ export default function MyPage() {
             alignItems: 'center', justifyContent: 'center',
             backdropFilter: 'blur(8px)',
           }}>
-            <RankIcon level={activeRank} branch={branch} size={32} />
+            <RankIcon level={activeRank as RankLevel} branch={branch} size={32} />
           </div>
           <div>
             <div style={{ fontSize: '18px', fontWeight: 800 }}>

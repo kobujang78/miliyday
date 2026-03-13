@@ -25,7 +25,7 @@ export default function MockProvider({ children }: { children: React.ReactNode }
 
     const originalFetch = window.fetch.bind(window)
 
-    window.fetch = async (input: RequestInfo, init?: RequestInit) => {
+    window.fetch = async (input: any, init?: RequestInit) => {
       try {
         const url = typeof input === 'string' ? input : (input as Request).url
         const path = new URL(url, location.href).pathname

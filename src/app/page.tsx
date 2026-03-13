@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import RankIcon, { BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import { useAuth } from '@/components/AuthProvider'
+import { loadVacationRecords, nextVacationDDay } from '@/lib/vacationUtils'
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
@@ -46,6 +47,13 @@ export default function Home() {
     return { total, passed, remaining, percent: Math.round(percent * 10) / 10, discharge }
   }, [enlistDate, branch])
 
+  // Vacation D-Day
+  const vacationInfo = useMemo(() => {
+    if (typeof window === 'undefined') return null
+    const records = loadVacationRecords()
+    return nextVacationDDay(records)
+  }, [loading]) // Reload when auth/profile loading finishes, effectively one-time or on re-render
+
 
   const circleSize = 100
   const stroke = 8
@@ -85,7 +93,10 @@ export default function Home() {
               {name && dday ? (
                 <>
                   <span>{currentBranch.label} {RANK_LABELS[activeRank]} {name}</span>
-                  <span style={{ fontSize: '15px', opacity: 0.9 }}>전역 D-{dday.remaining}</span>
+                  <div style={{ display: 'flex', gap: '8px', fontSize: '15px', opacity: 0.9 }}>
+                    {vacationInfo && <span>휴가 D-{vacationInfo.days}</span>}
+                    <span>전역 D-{dday.remaining}</span>
+                  </div>
                 </>
               ) : name ? (
                 `${currentBranch.label} ${RANK_LABELS[activeRank]} ${name}`

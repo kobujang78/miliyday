@@ -23,10 +23,9 @@ export default function Home() {
   const name = profile?.display_name || ''
   const branch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
-  const rank = (profile?.rank_level as RankLevel) || 1
-  // We'll trust the profile object already handles rankOverride if we set it there
-  // but for now let's check localStorage or just use what AuthProvider gives
-  const activeRank = rank
+  
+  // Use auto-calculated rank like AppShell
+  const activeRank = enlistDate ? calcAutoRank(enlistDate, branch) : ((profile?.rank_level as RankLevel) || 1)
 
   const currentBranch = BRANCHES.find(b => b.value === branch)!
   const accentColor = { army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b' }[branch]

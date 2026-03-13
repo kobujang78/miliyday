@@ -24,6 +24,18 @@ const navItems: NavItem[] = [
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>💡</span>,
     },
     {
+        href: '/salary',
+        label: '월급/적금',
+        matchPaths: ['/salary'],
+        icon: <span style={{ fontSize: '18px', lineHeight: 1 }}>💰</span>,
+    },
+    {
+        href: '/vacation',
+        label: '휴가관리',
+        matchPaths: ['/vacation'],
+        icon: <span style={{ fontSize: '18px', lineHeight: 1 }}>🗓️</span>,
+    },
+    {
         href: '/market',
         label: '병영장터',
         matchPaths: ['/market'],
@@ -42,6 +54,7 @@ const navItems: NavItem[] = [
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>👤</span>,
     },
 ]
+
 
 export default function BottomNav() {
     const pathname = usePathname()
@@ -91,7 +104,7 @@ export default function BottomNav() {
                             {item.icon}
                         </span>
                         <span style={{
-                            fontSize: '10px',
+                            fontSize: '9px',
                             fontWeight: isActive ? 700 : 500,
                             letterSpacing: '-0.01em', lineHeight: 1,
                         }}>

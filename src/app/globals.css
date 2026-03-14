@@ -48,6 +48,19 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── 입력창 텍스트 색상 ── */
+input,
+textarea,
+select {
+  color: #0f172a;
+  font-family: inherit;
+}
+
+::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
 /* App Shell */
 .app-shell {
   min-height: 100dvh;
@@ -230,9 +243,24 @@ body {
 }
 
 /* utility tweaks */
-.container-max { max-width: 480px; margin: 0 auto; }
-.card { background: var(--surface); border-radius: 12px; padding: 16px; box-shadow: 0 6px 18px rgba(11,110,253,0.06); }
-.small-muted { color: var(--muted); font-size: 12px; }
+.container-max {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 6px 18px rgba(11, 110, 253, 0.06);
+}
+
+.small-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
 
 /* spacing utility */
-.mt-4 { margin-top: 16px; }
+.mt-4 {
+  margin-top: 16px;
+}

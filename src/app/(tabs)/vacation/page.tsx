@@ -19,8 +19,8 @@ function formatDateKr(d: Date) {
 }
 
 function daysUntil(target: Date) {
-  const now = new Date(); now.setHours(0,0,0,0)
-  return Math.ceil((target.getTime() - now.getTime()) / (24*60*60*1000))
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  return Math.ceil((target.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
 }
 
 export default function VacationPage() {
@@ -28,7 +28,7 @@ export default function VacationPage() {
   const branch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   const totalServiceMonths = SERVICE_MONTHS[branch]
-  
+
   const dischargeDate = useMemo(() => {
     if (!enlistDate) return null
     const d = new Date(enlistDate)

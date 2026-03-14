@@ -3,8 +3,8 @@ import React, { useEffect, useState, useRef } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import RankIcon, { type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
-import { 
-  type FeedItem, loadFeed, addPost, toggleLike, formatTimeAgo 
+import {
+  type FeedItem, loadFeed, addPost, toggleLike, formatTimeAgo
 } from '@/lib/shareUtils'
 
 const VISIBILITY_MAP: Record<string, { label: string; icon: string }> = {
@@ -15,7 +15,7 @@ const VISIBILITY_MAP: Record<string, { label: string; icon: string }> = {
 
 export default function SharePage() {
   const { profile, user } = useAuth()
-  
+
   // Profile derived data
   const userName = profile?.display_name || '사용자'
   const userBranch = (profile?.branch as Branch) || 'army'
@@ -24,14 +24,14 @@ export default function SharePage() {
 
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [loading, setLoading] = useState(true)
-  
+
   // Modal state
   const [showModal, setShowModal] = useState(false)
   const [caption, setCaption] = useState('')
   const [visibility, setVisibility] = useState<'public' | 'connections' | 'private'>('connections')
   const [images, setImages] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -48,11 +48,11 @@ export default function SharePage() {
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
-    
+
     // Convert files to Base64
     const newImages: string[] = []
     let processed = 0
-    
+
     Array.from(files).forEach(file => {
       const reader = new FileReader()
       reader.onload = (event) => {
@@ -66,7 +66,7 @@ export default function SharePage() {
       }
       reader.readAsDataURL(file)
     })
-    
+
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
@@ -80,18 +80,18 @@ export default function SharePage() {
     if (!caption.trim() && images.length === 0) return
     if (!user) { alert('로그인이 필요합니다'); return }
     setIsSubmitting(true)
-    
+
     const newPost = await addPost({
       userId: user.id,
       caption: caption.trim(),
       images: images,
       visibility: visibility,
     })
-    
+
     if (newPost) {
       setFeed(prev => [newPost, ...prev])
     }
-    
+
     // Reset and close
     setCaption('')
     setImages([])
@@ -198,8 +198,8 @@ export default function SharePage() {
                     scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch',
                   }}>
                     {f.images.map((img, idx) => (
-                      <div key={idx} style={{ 
-                        width: f.images.length === 1 ? '100%' : '85%', 
+                      <div key={idx} style={{
+                        width: f.images.length === 1 ? '100%' : '85%',
                         flexShrink: 0, scrollSnapAlign: 'center',
                         aspectRatio: '4/3', background: '#f8fafc',
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -211,7 +211,7 @@ export default function SharePage() {
                     ))}
                   </div>
                 )}
-                
+
                 {f.images && f.images.length > 1 && (
                   <div style={{ textAlign: 'center', fontSize: '10px', color: '#cbd5e1', marginTop: '4px' }}>
                     ← 옆으로 밀어서 사진 더 보기 →
@@ -220,21 +220,21 @@ export default function SharePage() {
 
                 {/* Footer Actions */}
                 <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-                  <button onClick={() => handleLike(f.id)} style={{ 
-                    display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none', 
-                    fontSize: '13px', color: f.likes > 0 ? '#ef4444' : '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0 
+                  <button onClick={() => handleLike(f.id)} style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none',
+                    fontSize: '13px', color: f.likes > 0 ? '#ef4444' : '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0
                   }}>
                     {f.likes > 0 ? '❤️' : '🤍'} 좋아요 {f.likes > 0 && f.likes}
                   </button>
-                  <button style={{ 
-                    display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none', 
-                    fontSize: '13px', color: '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0 
+                  <button style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none',
+                    fontSize: '13px', color: '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0
                   }}>
                     💬 댓글 {f.comments > 0 && f.comments}
                   </button>
-                  <button onClick={() => handleShare(f)} style={{ 
-                    display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none', 
-                    fontSize: '13px', color: '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0, marginLeft: 'auto' 
+                  <button onClick={() => handleShare(f)} style={{
+                    display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none',
+                    fontSize: '13px', color: '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0, marginLeft: 'auto'
                   }}>
                     📤 공유
                   </button>
@@ -266,17 +266,17 @@ export default function SharePage() {
           animation: 'slideUp 0.3s ease-out',
         }}>
           {/* Modal Header */}
-          <div style={{ 
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
-            padding: '16px', borderBottom: '1px solid #f1f5f9' 
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '16px', borderBottom: '1px solid #f1f5f9'
           }}>
             <button onClick={() => setShowModal(false)} style={{ border: 'none', background: 'none', fontSize: '16px', color: '#0f172a', fontWeight: 700, padding: 0 }}>✕</button>
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>글 쓰기</h3>
-            <button 
-              onClick={handleSubmit} 
+            <button
+              onClick={handleSubmit}
               disabled={isSubmitting || (!caption.trim() && images.length === 0)}
-              style={{ 
-                border: 'none', background: isSubmitting || (!caption.trim() && images.length === 0) ? '#e2e8f0' : '#10b981', 
+              style={{
+                border: 'none', background: isSubmitting || (!caption.trim() && images.length === 0) ? '#e2e8f0' : '#10b981',
                 color: '#fff', fontSize: '14px', fontWeight: 700, padding: '6px 14px', borderRadius: '16px',
                 transition: 'all 0.2s'
               }}
@@ -299,12 +299,12 @@ export default function SharePage() {
                 {RANK_LABELS[userRank as RankLevel]} {userName}
               </div>
             </div>
-            
-            <select 
-              value={visibility} 
+
+            <select
+              value={visibility}
               onChange={e => setVisibility(e.target.value as any)}
-              style={{ 
-                padding: '6px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', 
+              style={{
+                padding: '6px 10px', borderRadius: '8px', border: '1px solid #e2e8f0',
                 background: '#f8fafc', fontSize: '12px', fontWeight: 600, color: '#475569',
                 outline: 'none'
               }}
@@ -316,13 +316,13 @@ export default function SharePage() {
           </div>
 
           {/* Text Area */}
-          <textarea 
+          <textarea
             value={caption}
             onChange={e => setCaption(e.target.value)}
             placeholder="무슨 일이 일어나고 있나요? 전우들이나 가족, 지인들에게 근황을 전해보세요."
-            style={{ 
-              flex: 1, border: 'none', padding: '0 16px', fontSize: '16px', lineHeight: 1.5, 
-              color: '#0f172a', resize: 'none', outline: 'none' 
+            style={{
+              flex: 1, border: 'none', padding: '0 16px', fontSize: '16px', lineHeight: 1.5,
+              color: '#0f172a', resize: 'none', outline: 'none'
             }}
           />
 
@@ -333,11 +333,11 @@ export default function SharePage() {
                 <div key={idx} style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0, borderRadius: '8px', overflow: 'hidden' }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={img} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  <button 
+                  <button
                     onClick={() => removeImage(idx)}
-                    style={{ 
-                      position: 'absolute', top: '4px', right: '4px', width: '20px', height: '20px', 
-                      borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff', 
+                    style={{
+                      position: 'absolute', top: '4px', right: '4px', width: '20px', height: '20px',
+                      borderRadius: '50%', background: 'rgba(0,0,0,0.5)', color: '#fff',
                       border: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center',
                       fontSize: '10px', cursor: 'pointer'
                     }}
@@ -348,29 +348,30 @@ export default function SharePage() {
           )}
 
           {/* Toolbar Setup */}
-          <div style={{ 
+          <div style={{
             padding: '12px 16px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: '16px',
             background: '#f8fafc'
           }}>
-            <button 
+            <button
               onClick={() => fileInputRef.current?.click()}
               style={{ display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none', fontSize: '14px', color: '#10b981', fontWeight: 700, cursor: 'pointer', padding: 0 }}
             >
               <span style={{ fontSize: '20px' }}>📸</span> 사진 첨부
             </button>
-            <input 
-              type="file" 
-              accept="image/*" 
-              multiple 
-              ref={fileInputRef} 
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              ref={fileInputRef}
               onChange={handleImageSelect}
-              style={{ display: 'none' }} 
+              style={{ display: 'none' }}
             />
           </div>
         </div>
       )}
-      
-      <style dangerouslySetInnerHTML={{__html: `
+
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes slideUp {
           from { transform: translateY(100%); }
           to { transform: translateY(0); }

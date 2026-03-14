@@ -7,7 +7,7 @@ import { processInviteReward } from '@/lib/pointUtils'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 
 export default function OnboardingPage() {
-    const { user, isGuest, signInWithOAuth, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
+    const { user, profile, isGuest, signInWithOAuth, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
     const [step, setStep] = useState<'login' | 'profile'>('login')
@@ -35,9 +35,14 @@ export default function OnboardingPage() {
         if (!user && !isGuest) {
             setStep('login')
         } else {
+            // If already has profile, skip to home
+            if (profile?.display_name && !isGuest) {
+                router.replace('/')
+                return
+            }
             setStep('profile')
         }
-    }, [user, isGuest])
+    }, [user, isGuest, profile, router])
 
     const branchColorMap: Record<Branch, string> = {
         army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b'

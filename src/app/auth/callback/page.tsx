@@ -13,13 +13,22 @@ function CallbackContent() {
             const code = searchParams.get('code')
             const next = searchParams.get('next') ?? '/'
 
-            if (code) {
+            if (!code) {
                 const supabase = createClient()
-                const { error } = await supabase.auth.exchangeCodeForSession(code)
-                if (!error) {
+                const { data: { session } } = await supabase.auth.getSession()
+                if (session) {
                     router.replace(next)
                     return
                 }
+                router.replace('/onboarding?error=auth')
+                return
+            }
+
+            const supabase = createClient()
+            const { error } = await supabase.auth.exchangeCodeForSession(code)
+            if (!error) {
+                router.replace(next)
+                return
             }
 
             router.replace('/onboarding?error=auth')

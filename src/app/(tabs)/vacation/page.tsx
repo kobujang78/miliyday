@@ -77,7 +77,8 @@ export default function VacationPage() {
   const pastRecords = records.filter(r => new Date(r.endDate) < today).sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
 
   const handleAdd = useCallback(async () => {
-    if (!formStart || !formEnd || !user) return
+    if (!formStart || !formEnd) return
+    if (!user) { alert('로그인이 필요합니다. 마이페이지에서 로그인해주세요.'); return }
     setSaving(true)
     const days = daysBetweenInclusive(formStart, formEnd)
     const typeInfo = VACATION_TYPES.find(t => t.value === formType)!

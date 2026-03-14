@@ -18,7 +18,7 @@ export default function MarketPage() {
       textAlign: 'center', minHeight: '60dvh', display: 'flex', 
       flexDirection: 'column', alignItems: 'center', justifyContent: 'center' 
     }}>
-      <div style={{ fontSize: '64px', marginBottom: '20px' }}>🏪</div>
+      <div style={{ fontSize: '64px', marginBottom: '20px' }}>🛒</div>
       <h2 style={{ margin: '0 0 12px', fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>슬병PX</h2>
       <p style={{ fontSize: '16px', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
         더 나은 병영 장터 문화를 위해<br />

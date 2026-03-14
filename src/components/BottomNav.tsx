@@ -33,7 +33,7 @@ const navItems: NavItem[] = [
         href: '/market',
         label: '슬병PX',
         matchPaths: ['/market'],
-        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🏪</span>,
+        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🛒</span>,
     },
     {
         href: '/tips',

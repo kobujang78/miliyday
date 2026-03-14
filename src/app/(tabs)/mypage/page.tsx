@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react'
 import RankIcon, { RANKS, BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS, getPromotionDates } from '@/lib/rankUtils'
+import { getPoints, getMyInviteCode, getInviteStats } from '@/lib/pointUtils'
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
@@ -12,12 +13,14 @@ import { useAuth } from '@/components/AuthProvider'
 
 export default function MyPage() {
   const router = useRouter()
-  const { profile, signOut, updateProfile } = useAuth()
+  const { user, profile, signOut, updateProfile } = useAuth()
 
   const [showRankEdit, setShowRankEdit] = useState(false)
   const [showInfoEdit, setShowInfoEdit] = useState(false)
-  const [inviteCode, setInviteCode] = useState('')
-  const [generatedCode, setGeneratedCode] = useState('')
+  const [myPoints, setMyPoints] = useState(0)
+  const [myInviteCode, setMyInviteCode] = useState('')
+  const [inviteCount, setInviteCount] = useState(0)
+  const [codeCopied, setCodeCopied] = useState(false)
 
   // Editing state for profile
   const [editName, setEditName] = useState('')
@@ -84,12 +87,50 @@ export default function MyPage() {
   const accentColor = { army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b' }[branch]
   const promotionDates = useMemo(() => getPromotionDates(enlistDate, branch), [enlistDate, branch])
 
-  const generateInviteCode = () => {
-    const code = `MILI-${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-    setGeneratedCode(code)
+  // Fetch MiliPoint data
+  useEffect(() => {
+    if (!user) return
+    const fetchPointData = async () => {
+      const [pts, code, stats] = await Promise.all([
+        getPoints(user.id),
+        getMyInviteCode(user.id),
+        getInviteStats(user.id),
+      ])
+      setMyPoints(pts)
+      setMyInviteCode(code)
+      setInviteCount(stats.count)
+    }
+    fetchPointData()
+  }, [user])
+
+  const handleCopyInviteCode = async () => {
+    if (!myInviteCode) return
+    try {
+      await navigator.clipboard.writeText(myInviteCode)
+      setCodeCopied(true)
+      setTimeout(() => setCodeCopied(false), 2000)
+    } catch {
+      alert(myInviteCode)
+    }
+  }
+
+  const handleShareInvite = async () => {
+    const shareUrl = `https://miliyday.vercel.app/onboarding?invite=${myInviteCode}`
+    const shareData = {
+      title: '슬기로운 병영생활 초대',
+      text: `슬기로운 병영생활 앱에 가입하면 2,000P 보너스! 초대코드: ${myInviteCode}`,
+      url: shareUrl,
+    }
+    if (navigator.share) {
+      try { await navigator.share(shareData) } catch { /* user cancelled */ }
+    } else {
+      await navigator.clipboard.writeText(`${shareData.text}\n${shareUrl}`)
+      alert('초대 링크가 클립보드에 복사되었습니다!')
+    }
   }
 
   const MENU_ITEMS = [
+    { icon: '💰', label: '포인트 내역', desc: '적립/사용 내역 확인', href: '/points' },
     { icon: '📝', label: '내 작성글', desc: '내가 작성한 글 모아보기' },
     { icon: '❤️', label: '찜 목록', desc: '찜한 장터 아이템' },
     { icon: '🔔', label: '알림 설정', desc: '푸시 알림 관리' },
@@ -331,46 +372,64 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 초대코드 */}
+      {/* 밀포인트 & 초대 */}
       <div style={{
         background: '#fff', borderRadius: '16px', padding: '20px',
         boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
       }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
-          🔗 지인 연결
+        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+          💰 밀포인트 & 초대
         </h3>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-          <input
-            type="text" placeholder="초대코드 입력" value={inviteCode}
-            onChange={e => setInviteCode(e.target.value)}
-            style={{
-              flex: 1, padding: '8px 12px', border: '1.5px solid #e5e7eb',
-              borderRadius: '10px', fontSize: '13px', outline: 'none',
-            }}
-          />
-          <button style={{
-            padding: '8px 14px', borderRadius: '10px', border: 'none',
-            background: '#0f172a', color: '#fff', fontSize: '12px',
-            fontWeight: 700, cursor: 'pointer',
-          }}>연결</button>
-        </div>
-        <button onClick={generateInviteCode} style={{
-          width: '100%', padding: '10px', borderRadius: '10px',
-          border: '1.5px dashed #d1d5db', background: '#fafbff',
-          fontSize: '13px', fontWeight: 600, cursor: 'pointer', color: '#6b7280',
+
+        {/* 포인트 잔액 */}
+        <div style={{
+          padding: '16px', borderRadius: '14px', marginBottom: '14px',
+          background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`,
+          color: '#fff',
         }}>
-          초대코드 생성하기
-        </button>
-        {generatedCode && (
-          <div style={{
-            marginTop: '10px', padding: '10px 14px', borderRadius: '10px',
-            background: '#f0f4ff', textAlign: 'center',
-            fontSize: '16px', fontWeight: 800, color: accentColor,
-            letterSpacing: '0.1em',
-          }}>
-            {generatedCode}
+          <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '4px' }}>내 밀포인트</div>
+          <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em' }}>
+            {myPoints.toLocaleString()}P
           </div>
-        )}
+          <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>
+            초대한 지인: {inviteCount}명
+          </div>
+        </div>
+
+        {/* 내 초대코드 */}
+        <div style={{
+          padding: '14px', borderRadius: '12px', background: '#f8fafc',
+          border: '1px solid #e2e8f0', marginBottom: '10px',
+        }}>
+          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>내 초대코드</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{
+              flex: 1, fontSize: '20px', fontWeight: 800, color: accentColor,
+              letterSpacing: '0.1em',
+            }}>
+              {myInviteCode || '로딩...'}
+            </span>
+            <button onClick={handleCopyInviteCode} style={{
+              padding: '6px 12px', borderRadius: '8px', border: 'none',
+              background: codeCopied ? '#10b981' : '#0f172a', color: '#fff',
+              fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+              transition: 'all 0.2s',
+            }}>
+              {codeCopied ? '✓ 복사됨' : '복사'}
+            </button>
+          </div>
+        </div>
+
+        {/* 초대 링크 공유 */}
+        <button onClick={handleShareInvite} style={{
+          width: '100%', padding: '12px', borderRadius: '12px', border: 'none',
+          background: 'linear-gradient(135deg, #10b981, #059669)',
+          color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+          boxShadow: '0 4px 12px rgba(16,185,129,0.25)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+        }}>
+          <span>📨</span> 초대 링크 보내기 (가입시 양쪽 2,000P + 1,000P!)
+        </button>
       </div>
 
       {/* 메뉴 리스트 */}
@@ -379,7 +438,7 @@ export default function MyPage() {
         boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
       }}>
         {MENU_ITEMS.map((item, idx) => (
-          <div key={item.label} style={{
+          <div key={item.label} onClick={() => { if ('href' in item && item.href) router.push(item.href) }} style={{
             display: 'flex', alignItems: 'center', gap: '12px',
             padding: '14px 16px', cursor: 'pointer',
             borderBottom: idx < MENU_ITEMS.length - 1 ? '1px solid #f1f5f9' : 'none',

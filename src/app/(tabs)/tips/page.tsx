@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
+import { earnContentReward } from '@/lib/pointUtils'
 
 interface Post { id: string; title: string; body: string; category?: string; likes?: number; comments_count?: number }
 
@@ -20,6 +21,7 @@ export default function TipsPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState('전체')
+  const [pointToast, setPointToast] = useState('')
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -59,6 +61,15 @@ export default function TipsPage() {
 
     if (!error && data) {
       setPosts(prev => [data, ...prev])
+
+      // 포인트 적립
+      if (user?.id) {
+        const result = await earnContentReward(user.id, 'post_reward', data.id)
+        if (result.earned) {
+          setPointToast(`💰 ${result.points}P 적립! (오늘 ${result.remaining}회 남음)`)
+          setTimeout(() => setPointToast(''), 3000)
+        }
+      }
     }
   }
 
@@ -138,6 +149,19 @@ export default function TipsPage() {
               </div>
             </article>
           ))}
+        </div>
+      )}
+
+      {/* 포인트 토스트 */}
+      {pointToast && (
+        <div style={{
+          position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+          background: '#0f172a', color: '#fff', padding: '10px 20px', borderRadius: '12px',
+          fontSize: '13px', fontWeight: 700, zIndex: 100,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+          animation: 'fadeIn 0.3s ease',
+        }}>
+          {pointToast}
         </div>
       )}
     </div>

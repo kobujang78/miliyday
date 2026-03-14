@@ -1,13 +1,15 @@
 "use client"
 import React, { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { createClient } from '@/lib/supabase'
+import { processInviteReward } from '@/lib/pointUtils'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 
 export default function OnboardingPage() {
     const { user, isGuest, signInWithOAuth, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
     const router = useRouter()
+    const searchParams = useSearchParams()
     const [step, setStep] = useState<'login' | 'profile'>('login')
     const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
     const [email, setEmail] = useState('')
@@ -19,6 +21,13 @@ export default function OnboardingPage() {
     const [enlistDate, setEnlistDate] = useState('')
     const [saving, setSaving] = useState(false)
     const [authError, setAuthError] = useState('')
+    const [inviteCode, setInviteCode] = useState('')
+
+    // Read invite code from URL if present
+    useEffect(() => {
+        const invite = searchParams.get('invite')
+        if (invite) setInviteCode(invite.toUpperCase())
+    }, [searchParams])
 
     // Sync step with auth status
     useEffect(() => {
@@ -103,6 +112,14 @@ export default function OnboardingPage() {
 
             if (user) {
                 await refreshProfile()
+
+                // 초대코드 처리
+                if (inviteCode.trim()) {
+                    const ok = await processInviteReward(inviteCode.trim(), user.id)
+                    if (ok) {
+                        alert('🎉 초대코드 적용! 2,000P가 적립되었습니다!')
+                    }
+                }
             }
 
             router.push('/')
@@ -375,11 +392,22 @@ export default function OnboardingPage() {
                             type="date" value={enlistDate} onChange={e => setEnlistDate(e.target.value)}
                             style={{
                                 width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
-                                fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '20px',
+                                fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '16px',
                             }}
                         />
 
-                        {/* 미리보기 */}
+                        {/* 초대코드 */}
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>초대코드 (선택)</label>
+                        <input
+                            type="text" placeholder="초대코드가 있다면 입력해주세요 (예: MILI-A3K9)"
+                            value={inviteCode}
+                            onChange={e => setInviteCode(e.target.value.toUpperCase())}
+                            style={{
+                                width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
+                                fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '20px',
+                                letterSpacing: '0.05em',
+                            }}
+                        />
                         {name && (
                             <div style={{
                                 textAlign: 'center', padding: '12px', borderRadius: '12px',

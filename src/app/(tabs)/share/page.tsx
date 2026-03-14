@@ -6,6 +6,7 @@ import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import {
   type FeedItem, loadFeed, addPost, toggleLike, formatTimeAgo
 } from '@/lib/shareUtils'
+import { earnContentReward } from '@/lib/pointUtils'
 
 const VISIBILITY_MAP: Record<string, { label: string; icon: string }> = {
   public: { label: '전체공개', icon: '🌐' },
@@ -31,6 +32,7 @@ export default function SharePage() {
   const [visibility, setVisibility] = useState<'public' | 'connections' | 'private'>('connections')
   const [images, setImages] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [pointToast, setPointToast] = useState('')
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -90,6 +92,15 @@ export default function SharePage() {
 
     if (newPost) {
       setFeed(prev => [newPost, ...prev])
+
+      // 포인트 적립
+      if (user?.id) {
+        const result = await earnContentReward(user.id, 'feed_reward', newPost.id)
+        if (result.earned) {
+          setPointToast(`💰 ${result.points}P 적립! (오늘 ${result.remaining}회 남음)`)
+          setTimeout(() => setPointToast(''), 3000)
+        }
+      }
     }
 
     // Reset and close
@@ -377,6 +388,18 @@ export default function SharePage() {
           to { transform: translateY(0); }
         }
       `}} />
+
+      {/* 포인트 토스트 */}
+      {pointToast && (
+        <div style={{
+          position: 'fixed', bottom: '80px', left: '50%', transform: 'translateX(-50%)',
+          background: '#0f172a', color: '#fff', padding: '10px 20px', borderRadius: '12px',
+          fontSize: '13px', fontWeight: 700, zIndex: 100,
+          boxShadow: '0 4px 16px rgba(0,0,0,0.2)',
+        }}>
+          {pointToast}
+        </div>
+      )}
     </div>
   )
 }

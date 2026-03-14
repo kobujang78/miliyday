@@ -31,9 +31,9 @@ const navItems: NavItem[] = [
     },
     {
         href: '/market',
-        label: '병영장터',
+        label: '슬병PX',
         matchPaths: ['/market'],
-        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🛒</span>,
+        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🏪</span>,
     },
     {
         href: '/tips',
@@ -79,10 +79,20 @@ export default function BottomNav() {
         >
             {navItems.map((item) => {
                 const isActive = item.matchPaths.includes(pathname)
+                const isPX = item.label === '슬병PX'
+
+                const handleTabClick = (e: React.MouseEvent) => {
+                    if (isPX) {
+                        e.preventDefault()
+                        alert('준비 중입니다. (업데이트 예정)')
+                    }
+                }
+
                 return (
                     <Link
                         key={item.href}
-                        href={item.href}
+                        href={isPX ? '#' : item.href}
+                        onClick={handleTabClick}
                         style={{
                             display: 'flex', flexDirection: 'column',
                             alignItems: 'center', justifyContent: 'center',

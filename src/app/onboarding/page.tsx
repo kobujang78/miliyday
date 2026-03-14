@@ -10,7 +10,7 @@ export default function OnboardingPage() {
     const { user, profile, isGuest, signInWithOAuth, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
-    const [step, setStep] = useState<'login' | 'profile'>('login')
+    const [step, setStep] = useState<'splash' | 'login' | 'profile'>('splash')
     const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -24,14 +24,26 @@ export default function OnboardingPage() {
     const [authError, setAuthError] = useState('')
     const [inviteCode, setInviteCode] = useState('')
 
-    // Read invite code from URL if present
+    // Splash timer
     useEffect(() => {
-        const invite = searchParams.get('invite')
-        if (invite) setInviteCode(invite.toUpperCase())
-    }, [searchParams])
+        const timer = setTimeout(() => {
+            if (!user && !isGuest) {
+                setStep('login')
+            } else if (profile?.display_name && !isGuest) {
+                router.replace('/')
+            } else {
+                setStep('profile')
+            }
+        }, 3000)
+        return () => clearTimeout(timer)
+    }, [user, isGuest, profile, router])
 
-    // Sync step with auth status
+    // Read invite code from URL if present
+
+    // Sync step with auth status (Only when not in splash)
     useEffect(() => {
+        if (step === 'splash') return
+        
         if (!user && !isGuest) {
             setStep('login')
         } else {
@@ -42,7 +54,7 @@ export default function OnboardingPage() {
             }
             setStep('profile')
         }
-    }, [user, isGuest, profile, router])
+    }, [user, isGuest, profile, router, step])
 
     const branchColorMap: Record<Branch, string> = {
         army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b'
@@ -151,34 +163,72 @@ export default function OnboardingPage() {
             background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #334155 100%)',
             padding: '24px',
         }}>
-            <div style={{
-                width: '100%', maxWidth: '400px',
-                background: 'rgba(255,255,255,0.97)', borderRadius: '24px',
-                padding: '36px 28px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-                backdropFilter: 'blur(20px)',
-                transition: 'all 0.3s ease',
-            }}>
-                {/* Logo */}
-                <div style={{ textAlign: 'center', marginBottom: step === 'login' ? '28px' : '24px' }}>
-                    <style>{`
-                        @keyframes heroPulse {
-                            0%, 100% { opacity: 0.4; transform: scale(0.98); }
-                            50% { opacity: 1; transform: scale(1.02); }
-                        }
-                        .hero-image {
-                            animation: heroPulse 5s ease-in-out infinite;
-                            width: 100%;
-                            height: auto;
-                            border-radius: 12px;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                        }
-                    `}</style>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src="/images/hero.jpg" alt="슬기로운 병영생활" className="hero-image" />
-                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '12px' }}>
+            <style>{`
+                @keyframes splashFadeIn {
+                    from { opacity: 0; transform: scale(1.05); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+                @keyframes splashFadeOut {
+                    from { opacity: 1; }
+                    to { opacity: 0; }
+                }
+                @keyframes float {
+                    0%, 100% { transform: translateY(0); }
+                    50% { transform: translateY(-10px); }
+                }
+                .splash-container {
+                    animation: splashFadeIn 1.5s ease-out forwards;
+                    display: flex;
+                    flex-direction: column;
+                    alignItems: center;
+                    justifyContent: center;
+                    text-align: center;
+                }
+                .hero-full {
+                    width: 100%;
+                    max-width: 320px;
+                    border-radius: 20px;
+                    box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+                    margin-bottom: 24px;
+                }
+            `}</style>
+
+            {step === 'splash' ? (
+                <div className="splash-container">
+                    <img src="/images/hero.jpg" alt="슬기로운 병영생활" className="hero-full" />
+                    <div style={{
+                        color: '#fff',
+                        fontSize: '24px',
+                        fontWeight: 900,
+                        letterSpacing: '-0.02em',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                    }}>
+                        슬기로운 병영생활
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px', marginTop: '8px' }}>
                         군 생활의 든든한 동반자
                     </div>
                 </div>
+            ) : (
+                <div style={{
+                    width: '100%', maxWidth: '400px',
+                    background: 'rgba(255,255,255,0.97)', borderRadius: '24px',
+                    padding: '36px 28px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                    backdropFilter: 'blur(20px)',
+                    transition: 'all 0.3s ease',
+                    animation: 'splashFadeIn 0.5s ease-out'
+                }}>
+                    {/* Logo */}
+                    <div style={{ textAlign: 'center', marginBottom: step === 'login' ? '28px' : '24px' }}>
+                        <div style={{ fontSize: '40px', marginBottom: '8px' }}>🎖️</div>
+                        <div style={{
+                            fontSize: '28px', fontWeight: 900, color: '#0f172a',
+                            letterSpacing: '-0.03em',
+                        }}>슬기로운 병영생활</div>
+                        <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                            군 생활의 든든한 동반자
+                        </div>
+                    </div>
 
                 {step === 'login' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -469,6 +519,7 @@ export default function OnboardingPage() {
                     </>
                 )}
             </div>
+        )}
         </div>
     )
 }

@@ -160,12 +160,22 @@ export default function OnboardingPage() {
             }}>
                 {/* Logo */}
                 <div style={{ textAlign: 'center', marginBottom: step === 'login' ? '28px' : '24px' }}>
-                    <div style={{ fontSize: '40px', marginBottom: '8px' }}>🎖️</div>
-                    <div style={{
-                        fontSize: '28px', fontWeight: 900, color: '#0f172a',
-                        letterSpacing: '-0.03em',
-                    }}>슬기로운 병영생활</div>
-                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
+                    <style>{`
+                        @keyframes heroPulse {
+                            0%, 100% { opacity: 0.4; transform: scale(0.98); }
+                            50% { opacity: 1; transform: scale(1.02); }
+                        }
+                        .hero-image {
+                            animation: heroPulse 5s ease-in-out infinite;
+                            width: 100%;
+                            height: auto;
+                            border-radius: 12px;
+                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+                        }
+                    `}</style>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src="/images/hero.jpg" alt="슬기로운 병영생활" className="hero-image" />
+                    <div style={{ fontSize: '13px', color: '#64748b', marginTop: '12px' }}>
                         군 생활의 든든한 동반자
                     </div>
                 </div>

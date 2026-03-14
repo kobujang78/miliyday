@@ -20,6 +20,9 @@ export default function Home() {
 
   // Derived state from profile
   const name = profile?.display_name || ''
+  const nickname = profile?.nickname || ''
+  const avatarUrl = profile?.avatar_url || ''
+  const displayName = nickname || name
   const branch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   
@@ -101,21 +104,27 @@ export default function Home() {
             width: '48px', height: '48px', borderRadius: '50%',
             background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(8px)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            overflow: 'hidden',
           }}>
-            <RankIcon level={activeRank} branch={branch} size={28} />
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <RankIcon level={activeRank} branch={branch} size={28} />
+            )}
           </div>
           <div>
             <div style={{ fontSize: '17px', fontWeight: 800, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              {name && dday ? (
+              {displayName && dday ? (
                 <>
-                  <span>{currentBranch.label} {RANK_LABELS[activeRank]} {name}</span>
+                  <span>{currentBranch.label} {RANK_LABELS[activeRank]} {displayName}</span>
                   <div style={{ display: 'flex', gap: '8px', fontSize: '15px', opacity: 0.9 }}>
                     {vacationInfo && <span>휴가 D-{vacationInfo.days}</span>}
                     <span>전역 D-{dday.remaining}</span>
                   </div>
                 </>
-              ) : name ? (
-                `${currentBranch.label} ${RANK_LABELS[activeRank]} ${name}`
+              ) : displayName ? (
+                `${currentBranch.label} ${RANK_LABELS[activeRank]} ${displayName}`
               ) : (
                 '슬기로운 병영생활 오픈!'
               )}

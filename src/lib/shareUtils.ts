@@ -4,6 +4,8 @@ export interface FeedItem {
   id: string
   ownerId: string
   ownerName: string
+  ownerNickname: string
+  ownerAvatar: string
   ownerRank: number
   ownerBranch: string
   caption: string
@@ -21,7 +23,7 @@ export async function loadFeed(): Promise<FeedItem[]> {
     .from('feed_posts')
     .select(`
       id, user_id, caption, images, visibility, likes, comments_count, created_at,
-      profiles:user_id ( display_name, rank_level, branch )
+      profiles:user_id ( display_name, nickname, avatar_url, rank_level, branch )
     `)
     .order('created_at', { ascending: false })
     .limit(50)
@@ -32,6 +34,8 @@ export async function loadFeed(): Promise<FeedItem[]> {
     id: row.id,
     ownerId: row.user_id || '',
     ownerName: row.profiles?.display_name || '사용자',
+    ownerNickname: row.profiles?.nickname || '',
+    ownerAvatar: row.profiles?.avatar_url || '',
     ownerRank: row.profiles?.rank_level || 1,
     ownerBranch: row.profiles?.branch || 'army',
     caption: row.caption || '',
@@ -61,7 +65,7 @@ export async function addPost(post: {
     })
     .select(`
       id, user_id, caption, images, visibility, likes, comments_count, created_at,
-      profiles:user_id ( display_name, rank_level, branch )
+      profiles:user_id ( display_name, nickname, avatar_url, rank_level, branch )
     `)
     .single()
 
@@ -71,6 +75,8 @@ export async function addPost(post: {
     id: data.id,
     ownerId: data.user_id || '',
     ownerName: (data as any).profiles?.display_name || '사용자',
+    ownerNickname: (data as any).profiles?.nickname || '',
+    ownerAvatar: (data as any).profiles?.avatar_url || '',
     ownerRank: (data as any).profiles?.rank_level || 1,
     ownerBranch: (data as any).profiles?.branch || 'army',
     caption: data.caption || '',

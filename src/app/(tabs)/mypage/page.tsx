@@ -1,8 +1,9 @@
 "use client"
-import React, { useState, useEffect, useMemo, useCallback } from 'react'
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import RankIcon, { RANKS, BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS, getPromotionDates } from '@/lib/rankUtils'
 import { getPoints, getMyInviteCode, getInviteStats } from '@/lib/pointUtils'
+import { createClient } from '@/lib/supabase'
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
@@ -26,6 +27,8 @@ export default function MyPage() {
   const [editName, setEditName] = useState('')
   const [editBranch, setEditBranch] = useState<Branch>('army')
   const [editEnlistDate, setEditEnlistDate] = useState('')
+  const [editNickname, setEditNickname] = useState('')
+  const avatarInputRef = useRef<HTMLInputElement>(null)
 
   const handleSignOut = async () => {
     if (confirm('로그아웃 하시겠습니까?')) {
@@ -35,9 +38,13 @@ export default function MyPage() {
   }
 
   const name = profile?.display_name || ''
+  const nickname = profile?.nickname || ''
+  const avatarUrl = profile?.avatar_url || ''
+  const displayName = nickname || name
   const branch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   const rank = (profile?.rank_level as RankLevel) || 1
+  const nicknameUpdatedAt = profile?.nickname_updated_at || null
 
   // Initialize editing state when modal opens
   useEffect(() => {
@@ -45,16 +52,87 @@ export default function MyPage() {
       setEditName(name)
       setEditBranch(branch)
       setEditEnlistDate(enlistDate)
+      setEditNickname(nickname)
     }
-  }, [showInfoEdit, name, branch, enlistDate])
+  }, [showInfoEdit, name, branch, enlistDate, nickname])
 
-  const handleSaveInfo = () => {
-    updateProfile({
+  const canEditNickname = useMemo(() => {
+    if (!nicknameUpdatedAt) return true
+    const lastUpdate = new Date(nicknameUpdatedAt)
+    const daysSince = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60 * 24)
+    return daysSince >= 30
+  }, [nicknameUpdatedAt])
+
+  const daysUntilNicknameEdit = useMemo(() => {
+    if (!nicknameUpdatedAt) return 0
+    const lastUpdate = new Date(nicknameUpdatedAt)
+    const nextAllowed = new Date(lastUpdate.getTime() + 30 * 24 * 60 * 60 * 1000)
+    return Math.max(0, Math.ceil((nextAllowed.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+  }, [nicknameUpdatedAt])
+
+  const handleSaveInfo = async () => {
+    const updates: Record<string, any> = {
       display_name: editName,
       branch: editBranch,
-      enlist_date: editEnlistDate
-    })
+      enlist_date: editEnlistDate,
+    }
+    // 닉네임 변경 체크 (30일 제한)
+    if (editNickname !== nickname) {
+      if (!canEditNickname) {
+        alert(`닉네임은 ${daysUntilNicknameEdit}일 후에 변경할 수 있습니다.`)
+        return
+      }
+      updates.nickname = editNickname.trim() || editName
+      updates.nickname_updated_at = new Date().toISOString()
+    }
+    updateProfile(updates)
+    // Supabase에도 직접 저장
+    if (user) {
+      const supabase = createClient()
+      await supabase.from('profiles').update(updates).eq('id', user.id)
+      // refresh to get new data
+      const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at').eq('id', user.id).single()
+      if (data) updateProfile(data)
+    }
     setShowInfoEdit(false)
+  }
+
+  // 아바타 압축 + 업로드
+  const compressAvatar = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = 64
+          canvas.height = 64
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(img, 0, 0, 64, 64)
+          resolve(canvas.toDataURL('image/webp', 0.7))
+        }
+        img.onerror = reject
+        img.src = e.target?.result as string
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !user) return
+    try {
+      const compressed = await compressAvatar(file)
+      const supabase = createClient()
+      await supabase.from('profiles').update({ avatar_url: compressed }).eq('id', user.id)
+      updateProfile({ avatar_url: compressed } as any)
+      // Trigger re-fetch
+      const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at').eq('id', user.id).single()
+      if (data) updateProfile(data)
+    } catch {
+      alert('사진 업로드에 실패했습니다.')
+    }
   }
 
   // We'll load rankOverride from localStorage specifically since AuthProvider doesn't strictly type it yet
@@ -162,18 +240,36 @@ export default function MyPage() {
         </button>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '16px' }}>
-          <div style={{
-            width: '56px', height: '56px', borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(8px)',
-          }}>
-            <RankIcon level={activeRank as RankLevel} branch={branch} size={32} />
+          <div
+            onClick={() => avatarInputRef.current?.click()}
+            style={{
+              width: '56px', height: '56px', borderRadius: '50%',
+              background: 'rgba(255,255,255,0.2)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              backdropFilter: 'blur(8px)', cursor: 'pointer',
+              overflow: 'hidden', position: 'relative',
+            }}
+          >
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            ) : (
+              <RankIcon level={activeRank as RankLevel} branch={branch} size={32} />
+            )}
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              background: 'rgba(0,0,0,0.4)', fontSize: '8px',
+              textAlign: 'center', padding: '1px', color: '#fff',
+            }}>📷</div>
           </div>
+          <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
           <div>
             <div style={{ fontSize: '18px', fontWeight: 800 }}>
-              {name || '이름을 입력하세요'}
+              {displayName || '이름을 입력하세요'}
             </div>
+            {nickname && name && nickname !== name && (
+              <div style={{ fontSize: '11px', opacity: 0.7 }}>{name}</div>
+            )}
             <div style={{ fontSize: '13px', opacity: 0.85, marginTop: '2px' }}>
               {currentBranch.label} · {currentRank.label}
             </div>
@@ -222,6 +318,26 @@ export default function MyPage() {
                   type="text" value={editName} onChange={e => setEditName(e.target.value)}
                   style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}
                 />
+              </div>
+
+              <div>
+                <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  닉네임
+                  {!canEditNickname && <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 600 }}>({daysUntilNicknameEdit}일 후 변경 가능)</span>}
+                </label>
+                <input 
+                  type="text" value={editNickname}
+                  onChange={e => canEditNickname && setEditNickname(e.target.value)}
+                  disabled={!canEditNickname}
+                  placeholder="닉네임을 입력하세요"
+                  style={{
+                    width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',
+                    fontSize: '14px', outline: 'none',
+                    opacity: canEditNickname ? 1 : 0.5,
+                    background: canEditNickname ? '#fff' : '#f8fafc',
+                  }}
+                />
+                <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>닉네임은 30일에 1번만 변경할 수 있습니다</div>
               </div>
 
               <div>

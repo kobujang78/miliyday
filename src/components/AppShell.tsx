@@ -31,6 +31,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         const autoRank = enlistDate ? calcAutoRank(enlistDate, branch) : (profile.rank_level as RankLevel || 1)
         return {
             name: profile.display_name || '',
+            nickname: profile.nickname || '',
+            avatar_url: profile.avatar_url || '',
             branch,
             rank: autoRank as RankLevel,
         }
@@ -73,9 +75,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         background: `${branchColor}0a`, borderRadius: '20px',
                         border: `1px solid ${branchColor}18`,
                     }}>
-                        <RankIcon level={headerProfile.rank} branch={headerProfile.branch} size={22} />
+                        {headerProfile.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={headerProfile.avatar_url} alt="" style={{
+                                width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover',
+                            }} />
+                        ) : (
+                            <RankIcon level={headerProfile.rank} branch={headerProfile.branch} size={22} />
+                        )}
                         <span style={{ fontSize: '12px', fontWeight: 700, color: branchColor }}>
-                            {RANK_LABELS[headerProfile.rank]} {headerProfile.name}
+                            {headerProfile.nickname || `${RANK_LABELS[headerProfile.rank]} ${headerProfile.name}`}
                         </span>
                     </div>
                 ) : (

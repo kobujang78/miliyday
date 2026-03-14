@@ -29,8 +29,8 @@ function formatDateKr(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
 }
 function daysUntil(target: Date) {
-  const now = new Date(); now.setHours(0,0,0,0)
-  return Math.ceil((target.getTime() - now.getTime()) / (24*60*60*1000))
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  return Math.ceil((target.getTime() - now.getTime()) / (24 * 60 * 60 * 1000))
 }
 
 export default function SalaryPage() {
@@ -77,7 +77,7 @@ export default function SalaryPage() {
   // Next promotion info
   const nextPromotion = useMemo(() => {
     if (!promotionDates) return null
-    const now = new Date(); now.setHours(0,0,0,0)
+    const now = new Date(); now.setHours(0, 0, 0, 0)
     const promos = [
       { rank: 2 as RankLevel, date: promotionDates.private1, label: '일병' },
       { rank: 3 as RankLevel, date: promotionDates.corporal, label: '상병' },
@@ -330,9 +330,9 @@ export default function SalaryPage() {
 
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '8px' }}>
             {[
-              { label: '💜 내 원금', value: savingsResult.totalPrincipal, color: '#6366f1' },
-              { label: '💚 정부 매칭', value: savingsResult.matchingAmount, color: '#10b981' },
-              { label: '💛 이자 (비과세)', value: savingsResult.interest, color: '#f59e0b' },
+              { label: '내원금', value: savingsResult.totalPrincipal, color: '#6366f1' },
+              { label: '정부매칭', value: savingsResult.matchingAmount, color: '#10b981' },
+              { label: '이자(비과세)', value: savingsResult.interest, color: '#f59e0b' },
             ].map(item => (
               <div key={item.label} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',

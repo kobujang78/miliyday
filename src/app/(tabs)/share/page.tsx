@@ -18,7 +18,8 @@ export default function SharePage() {
   const { profile, user } = useAuth()
 
   // Profile derived data
-  const userName = profile?.display_name || '사용자'
+  const userName = profile?.nickname || profile?.display_name || '사용자'
+  const userAvatar = profile?.avatar_url || ''
   const userBranch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   const userRank = enlistDate ? calcAutoRank(enlistDate, userBranch) : ((profile?.rank_level as RankLevel) || 1)
@@ -172,12 +173,18 @@ export default function SharePage() {
                       width: '36px', height: '36px', borderRadius: '50%',
                       background: '#f8fafc', border: '1px solid #f1f5f9',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden',
                     }}>
-                      <RankIcon level={f.ownerRank as RankLevel} branch={f.ownerBranch as Branch} size={22} />
+                      {f.ownerAvatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={f.ownerAvatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <RankIcon level={f.ownerRank as RankLevel} branch={f.ownerBranch as Branch} size={22} />
+                      )}
                     </div>
                     <div>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
-                        {RANK_LABELS[f.ownerRank as RankLevel]} {f.ownerName}
+                        {f.ownerNickname || f.ownerName}
                       </div>
                       <div style={{ fontSize: '11px', color: '#9ca3af' }}>
                         {formatTimeAgo(f.createdAt)}

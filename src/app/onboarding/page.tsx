@@ -16,6 +16,7 @@ export default function OnboardingPage() {
     const [password, setPassword] = useState('')
     const [passwordConfirm, setPasswordConfirm] = useState('')
     const [name, setName] = useState('')
+    const [nickname, setNickname] = useState('')
     const [branch, setBranch] = useState<Branch>('army')
     const [rank, setRank] = useState<RankLevel>(1)
     const [enlistDate, setEnlistDate] = useState('')
@@ -92,10 +93,11 @@ export default function OnboardingPage() {
                     id: user.id,
                     email: user.email || '',
                     display_name: name,
-                    nickname: name,
+                    nickname: nickname.trim() || name,
                     branch,
                     rank_level: rank,
                     enlist_date: enlistDate || null,
+                    nickname_updated_at: nickname.trim() ? new Date().toISOString() : null,
                 })
                 if (error) {
                     console.error('Profile save error:', error)
@@ -378,6 +380,19 @@ export default function OnboardingPage() {
                         <input
                             type="text" placeholder="이름을 입력하세요" value={name}
                             onChange={e => setName(e.target.value)}
+                            style={{
+                                width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
+                                fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '16px',
+                            }}
+                            onFocus={e => e.target.style.borderColor = accentColor}
+                            onBlur={e => e.target.style.borderColor = '#e5e7eb'}
+                        />
+
+                        {/* 닉네임 */}
+                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>닉네임</label>
+                        <input
+                            type="text" placeholder="닉네임을 입력하세요 (미입력시 성명 사용)" value={nickname}
+                            onChange={e => setNickname(e.target.value)}
                             style={{
                                 width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
                                 fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '16px',

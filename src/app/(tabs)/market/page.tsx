@@ -1,7 +1,9 @@
 "use client"
 import React, { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/components/AuthProvider'
 
-interface Item { id: number; title: string; price: number; status: string; seller?: string; desc?: string }
+interface Item { id: string; title: string; price: number; status: string; description?: string; user_id?: string }
 
 const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
   selling: { label: '판매중', bg: '#dcfce7', color: '#16a34a' },
@@ -10,20 +12,50 @@ const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> =
 }
 
 export default function MarketPage() {
+  const { user } = useAuth()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    setLoading(true)
-    fetch('/api/market')
-      .then(r => r.json())
-      .then(data => setItems(data.items || []))
-      .catch(() => { })
-      .finally(() => setLoading(false))
+    const fetchItems = async () => {
+      setLoading(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('market_items')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (!error && data) setItems(data)
+      setLoading(false)
+    }
+    fetchItems()
   }, [])
 
   const filtered = search ? items.filter(i => i.title.includes(search)) : items
+
+  const handleCreateItem = async () => {
+    const title = prompt('상품명')
+    const price = Number(prompt('가격'))
+    const desc = prompt('설명') || ''
+    if (!title) return
+
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('market_items')
+      .insert({
+        user_id: user?.id || null,
+        title,
+        price,
+        status: 'selling',
+        description: desc,
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      setItems(prev => [data, ...prev])
+    }
+  }
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto' }}>
@@ -66,16 +98,13 @@ export default function MarketPage() {
                     borderRadius: '10px', background: st.bg, color: st.color,
                   }}>{st.label}</span>
                 </div>
-                {i.desc && (
-                  <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#64748b' }}>{i.desc}</p>
+                {i.description && (
+                  <p style={{ margin: '0 0 8px', fontSize: '12px', color: '#64748b' }}>{i.description}</p>
                 )}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <span style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>
                     {i.price?.toLocaleString()}원
                   </span>
-                  {i.seller && (
-                    <span style={{ fontSize: '11px', color: '#9ca3af' }}>판매자: {i.seller}</span>
-                  )}
                 </div>
               </div>
             )
@@ -84,18 +113,7 @@ export default function MarketPage() {
       )}
 
       {/* 플로팅 등록 버튼 */}
-      <button onClick={async () => {
-        const title = prompt('상품명')
-        const price = Number(prompt('가격'))
-        const desc = prompt('설명') || ''
-        if (!title) return
-        const res = await fetch('/api/market', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title, price, status: 'selling', desc, seller: '나' })
-        })
-        const j = await res.json()
-        setItems(prev => [j, ...prev])
-      }} style={{
+      <button onClick={handleCreateItem} style={{
         position: 'fixed', bottom: '80px', right: '20px', zIndex: 40,
         width: '52px', height: '52px', borderRadius: '50%', border: 'none',
         background: 'linear-gradient(135deg, #10b981, #059669)',

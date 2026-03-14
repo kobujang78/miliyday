@@ -1,7 +1,9 @@
 "use client"
 import React, { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase'
+import { useAuth } from '@/components/AuthProvider'
 
-interface Post { id: number; title: string; body: string; category?: string; likes?: number; comments?: number }
+interface Post { id: string; title: string; body: string; category?: string; likes?: number; comments_count?: number }
 
 const CATEGORIES = ['전체', '훈련소', '자대생활', '자기계발', '전역준비']
 
@@ -14,37 +16,69 @@ const categoryColors: Record<string, string> = {
 }
 
 export default function TipsPage() {
+  const { user } = useAuth()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState('전체')
 
   useEffect(() => {
-    setLoading(true)
-    fetch('/api/posts')
-      .then(r => r.json())
-      .then(data => setPosts(data.posts || []))
-      .catch(() => { })
-      .finally(() => setLoading(false))
+    const fetchPosts = async () => {
+      setLoading(true)
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('posts')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (!error && data) setPosts(data)
+      setLoading(false)
+    }
+    fetchPosts()
   }, [])
 
   const filtered = activeCategory === '전체' ? posts : posts.filter(p => p.category === activeCategory)
+
+  const handleCreatePost = async () => {
+    const title = prompt('제목')
+    const body = prompt('내용')
+    const category = prompt('카테고리 (훈련소/자대생활/자기계발/전역준비)') || '일반'
+    if (!title || !body) return
+
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('posts')
+      .insert({
+        user_id: user?.id || null,
+        title,
+        body,
+        category,
+        likes: 0,
+        comments_count: 0,
+      })
+      .select()
+      .single()
+
+    if (!error && data) {
+      setPosts(prev => [data, ...prev])
+    }
+  }
+
+  const handleDeletePost = async (id: string) => {
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('posts')
+      .delete()
+      .eq('id', id)
+
+    if (!error) {
+      setPosts(prev => prev.filter(x => x.id !== id))
+    }
+  }
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>병영꿀팁</h2>
-        <button onClick={async () => {
-          const title = prompt('제목')
-          const body = prompt('내용')
-          const category = prompt('카테고리 (훈련소/자대생활/자기계발/전역준비)') || '일반'
-          if (!title || !body) return
-          const res = await fetch('/api/posts', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title, body, category, likes: 0, comments: 0 })
-          })
-          const j = await res.json()
-          setPosts(prev => [j, ...prev])
-        }} style={{
+        <button onClick={handleCreatePost} style={{
           padding: '8px 16px', borderRadius: '20px', border: 'none',
           background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
           fontSize: '13px', fontWeight: 700, cursor: 'pointer',
@@ -94,12 +128,9 @@ export default function TipsPage() {
                 paddingTop: '10px', borderTop: '1px solid #f1f5f9',
               }}>
                 <span style={{ fontSize: '12px', color: '#9ca3af' }}>❤️ {p.likes ?? 0}</span>
-                <span style={{ fontSize: '12px', color: '#9ca3af' }}>💬 {p.comments ?? 0}</span>
+                <span style={{ fontSize: '12px', color: '#9ca3af' }}>💬 {p.comments_count ?? 0}</span>
                 <span style={{ marginLeft: 'auto' }}>
-                  <button onClick={async () => {
-                    await fetch(`/api/posts/${p.id}`, { method: 'DELETE' })
-                    setPosts(prev => prev.filter(x => x.id !== p.id))
-                  }} style={{
+                  <button onClick={() => handleDeletePost(p.id)} style={{
                     border: 'none', background: 'none', fontSize: '11px',
                     color: '#ef4444', cursor: 'pointer', padding: '4px 8px',
                   }}>삭제</button>

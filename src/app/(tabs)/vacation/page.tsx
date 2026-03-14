@@ -4,7 +4,7 @@ import { useAuth } from '@/components/AuthProvider'
 import { SERVICE_MONTHS, type Branch } from '@/components/RankIcon'
 import {
   VACATION_TYPES, type VacationType, type VacationRecord,
-  loadVacationRecords, saveVacationRecords,
+  loadVacationRecords, addVacationRecord, deleteVacationRecord,
   loadVacationBudgets, saveVacationBudgets,
   calcUsedDays, nextVacationDDay, daysBetweenInclusive,
 } from '@/lib/vacationUtils'
@@ -24,7 +24,7 @@ function daysUntil(target: Date) {
 }
 
 export default function VacationPage() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   const branch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   const totalServiceMonths = SERVICE_MONTHS[branch]
@@ -48,11 +48,21 @@ export default function VacationPage() {
   const [formEnd, setFormEnd] = useState('')
   const [formMemo, setFormMemo] = useState('')
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming')
+  const [saving, setSaving] = useState(false)
 
+  // Load data from Supabase
   useEffect(() => {
-    setRecords(loadVacationRecords())
-    setBudgets(loadVacationBudgets(branch))
-  }, [branch])
+    const load = async () => {
+      const userId = user?.id
+      const [recs, buds] = await Promise.all([
+        loadVacationRecords(userId),
+        loadVacationBudgets(userId, branch),
+      ])
+      setRecords(recs)
+      setBudgets(buds)
+    }
+    load()
+  }, [user, branch])
 
   const usedDays = useMemo(() => calcUsedDays(records), [records])
   const nextDDay = useMemo(() => nextVacationDDay(records), [records])
@@ -66,36 +76,39 @@ export default function VacationPage() {
   const upcomingRecords = records.filter(r => new Date(r.endDate) >= today).sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
   const pastRecords = records.filter(r => new Date(r.endDate) < today).sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())
 
-  const handleAdd = useCallback(() => {
-    if (!formStart || !formEnd) return
+  const handleAdd = useCallback(async () => {
+    if (!formStart || !formEnd || !user) return
+    setSaving(true)
     const days = daysBetweenInclusive(formStart, formEnd)
     const typeInfo = VACATION_TYPES.find(t => t.value === formType)!
-    const newRecord: VacationRecord = {
-      id: Date.now().toString(),
+    const newRecord = await addVacationRecord(user.id, {
       type: formType,
       title: formTitle || typeInfo.label,
       startDate: formStart,
       endDate: formEnd,
       days,
       memo: formMemo || undefined,
+    })
+    if (newRecord) {
+      setRecords(prev => [...prev, newRecord])
     }
-    const updated = [...records, newRecord]
-    setRecords(updated)
-    saveVacationRecords(updated)
     setShowForm(false)
     setFormTitle(''); setFormStart(''); setFormEnd(''); setFormMemo('')
-  }, [formType, formTitle, formStart, formEnd, formMemo, records])
+    setSaving(false)
+  }, [formType, formTitle, formStart, formEnd, formMemo, user])
 
-  const handleDelete = useCallback((id: string) => {
-    const updated = records.filter(r => r.id !== id)
-    setRecords(updated)
-    saveVacationRecords(updated)
-  }, [records])
+  const handleDelete = useCallback(async (id: string) => {
+    const success = await deleteVacationRecord(id)
+    if (success) {
+      setRecords(prev => prev.filter(r => r.id !== id))
+    }
+  }, [])
 
-  const handleBudgetSave = useCallback(() => {
-    saveVacationBudgets(budgets)
+  const handleBudgetSave = useCallback(async () => {
+    if (!user) return
+    await saveVacationBudgets(user.id, budgets)
     setShowBudgetEdit(false)
-  }, [budgets])
+  }, [budgets, user])
 
   // Progress bar values
   const progressPct = totalBudget > 0 ? Math.min(100, (totalUsed / totalBudget) * 100) : 0
@@ -319,13 +332,13 @@ export default function VacationPage() {
               outline: 'none', boxSizing: 'border-box',
             }} />
 
-          <button onClick={handleAdd} disabled={!formStart || !formEnd} style={{
+          <button onClick={handleAdd} disabled={!formStart || !formEnd || saving} style={{
             width: '100%', padding: '12px', borderRadius: '12px', border: 'none',
-            background: formStart && formEnd ? '#10b981' : '#e2e8f0',
-            color: formStart && formEnd ? '#fff' : '#9ca3af',
-            fontSize: '14px', fontWeight: 700, cursor: formStart && formEnd ? 'pointer' : 'default',
+            background: formStart && formEnd && !saving ? '#10b981' : '#e2e8f0',
+            color: formStart && formEnd && !saving ? '#fff' : '#9ca3af',
+            fontSize: '14px', fontWeight: 700, cursor: formStart && formEnd && !saving ? 'pointer' : 'default',
             transition: 'all 0.2s',
-          }}>등록하기</button>
+          }}>{saving ? '저장 중...' : '등록하기'}</button>
         </div>
       )}
 

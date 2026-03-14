@@ -62,50 +62,58 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     }, [user, fetchProfile])
 
     useEffect(() => {
-        // Check guest mode
-        const guest = localStorage.getItem('mili_guest')
-        if (guest === 'true') {
-            setIsGuest(true)
-            // Load guest profile from localStorage
-            try {
-                const gp = localStorage.getItem('mili_profile')
-                if (gp) {
-                    const p = JSON.parse(gp)
-                    setProfile({
-                        id: 'guest', email: '', display_name: p.name || null,
-                        branch: p.branch || 'army', rank_level: p.rank || 1,
-                        enlist_date: p.enlistDate || null, nickname: p.name || null,
-                    })
+        let authSubscription: any = null
+
+        const initAuth = async () => {
+            // 1. Initial guest check
+            const guest = localStorage.getItem('mili_guest')
+            if (guest === 'true') {
+                setIsGuest(true)
+                try {
+                    const gp = localStorage.getItem('mili_profile')
+                    if (gp) {
+                        const p = JSON.parse(gp)
+                        setProfile({
+                            id: 'guest', email: '', display_name: p.name || null,
+                            branch: p.branch || 'army', rank_level: p.rank || 1,
+                            enlist_date: p.enlistDate || null, nickname: p.name || null,
+                        })
+                    }
+                } catch { }
+            }
+
+            // 2. Initial session check
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session?.user) {
+                setIsGuest(false) // If real session exists, disable guest mode
+                setUser(session.user)
+                await fetchProfile(session.user.id)
+            }
+
+            // 3. Listen for changes (ALWAYS)
+            const { data: { subscription } } = supabase.auth.onAuthStateChange(
+                async (event, session) => {
+                    console.log('Auth event:', event, session?.user?.email)
+                    if (session?.user) {
+                        setIsGuest(false)
+                        setUser(session.user)
+                        await fetchProfile(session.user.id)
+                    } else if (event === 'SIGNED_OUT') {
+                        setUser(null)
+                        setProfile(null)
+                        setIsGuest(false)
+                    }
                 }
-            } catch { }
+            )
+            authSubscription = subscription
             setLoading(false)
-            return
         }
 
-        // Listen for auth changes
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-            async (event, session) => {
-                if (session?.user) {
-                    setUser(session.user)
-                    await fetchProfile(session.user.id)
-                } else {
-                    setUser(null)
-                    setProfile(null)
-                }
-                setLoading(false)
-            }
-        )
+        initAuth()
 
-        // Initial session check
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            if (session?.user) {
-                setUser(session.user)
-                fetchProfile(session.user.id)
-            }
-            setLoading(false)
-        })
-
-        return () => subscription.unsubscribe()
+        return () => {
+            if (authSubscription) authSubscription.unsubscribe()
+        }
     }, [supabase, fetchProfile])
 
     const signInWithGoogle = async () => {

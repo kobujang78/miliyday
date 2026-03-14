@@ -14,7 +14,7 @@ const VISIBILITY_MAP: Record<string, { label: string; icon: string }> = {
 }
 
 export default function SharePage() {
-  const { profile } = useAuth()
+  const { profile, user } = useAuth()
   
   // Profile derived data
   const userName = profile?.display_name || '사용자'
@@ -35,8 +35,13 @@ export default function SharePage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    setFeed(loadFeed())
-    setLoading(false)
+    const load = async () => {
+      setLoading(true)
+      const feedData = await loadFeed()
+      setFeed(feedData)
+      setLoading(false)
+    }
+    load()
   }, [])
 
   // --- Photo Upload Handling ---
@@ -71,26 +76,21 @@ export default function SharePage() {
   }
 
   // --- Post Submission ---
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!caption.trim() && images.length === 0) return
+    if (!user) { alert('로그인이 필요합니다'); return }
     setIsSubmitting(true)
     
-    const newPost: FeedItem = {
-      id: Date.now().toString(),
-      ownerId: profile?.id || 'guest',
-      ownerName: userName,
-      ownerRank: userRank,
-      ownerBranch: userBranch,
+    const newPost = await addPost({
+      userId: user.id,
       caption: caption.trim(),
       images: images,
       visibility: visibility,
-      createdAt: new Date().toISOString(),
-      likes: 0,
-      comments: 0
-    }
+    })
     
-    const updatedFeed = addPost(newPost)
-    setFeed(updatedFeed)
+    if (newPost) {
+      setFeed(prev => [newPost, ...prev])
+    }
     
     // Reset and close
     setCaption('')
@@ -105,14 +105,13 @@ export default function SharePage() {
     const shareData = {
       title: `${post.ownerName}님의 슬기로운 병영생활`,
       text: post.caption,
-      url: window.location.href, // In a real app, this would be a deep link to the specific post
+      url: window.location.href,
     }
 
     try {
       if (navigator.share) {
         await navigator.share(shareData)
       } else {
-        // Fallback to clipboard
         await navigator.clipboard.writeText(`${shareData.title}\n${shareData.text}\n${shareData.url}`)
         alert('링크가 클립보드에 복사되었습니다. 카카오톡 등에 붙여넣기 해보세요!')
       }
@@ -122,9 +121,11 @@ export default function SharePage() {
   }
 
   // --- Like Toggle ---
-  const handleLike = (id: string) => {
-    const updatedFeed = toggleLike(id)
-    setFeed(updatedFeed)
+  const handleLike = async (id: string) => {
+    const success = await toggleLike(id)
+    if (success) {
+      setFeed(prev => prev.map(p => p.id === id ? { ...p, likes: p.likes + 1 } : p))
+    }
   }
 
   return (
@@ -280,7 +281,7 @@ export default function SharePage() {
                 transition: 'all 0.2s'
               }}
             >
-              게시
+              {isSubmitting ? '게시 중...' : '게시'}
             </button>
           </div>
 

@@ -4,6 +4,7 @@ import RankIcon, { BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel } from 
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import { useAuth } from '@/components/AuthProvider'
 import { loadVacationRecords, nextVacationDDay } from '@/lib/vacationUtils'
+import { createClient } from '@/lib/supabase'
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
@@ -12,13 +13,10 @@ function daysBetween(a: Date, b: Date) {
   return Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000))
 }
 
-const NOTICES = [
-  { id: 1, title: '📢 슬기로운 병영생활 오픈!', body: '군 생활의 든든한 동반자 슬기로운 병영생활에 오신 것을 환영합니다.', date: '2026.03.01' },
-  { id: 2, title: '🔔 병영장터 오픈', body: '중고거래 기능이 추가되었습니다. 병영장터에서 확인해보세요!', date: '2026.03.01' },
-]
+interface Notice { id: string; title: string; body: string; date: string }
 
 export default function Home() {
-  const { profile, loading } = useAuth()
+  const { profile, user, loading } = useAuth()
 
   // Derived state from profile
   const name = profile?.display_name || ''
@@ -30,6 +28,20 @@ export default function Home() {
 
   const currentBranch = BRANCHES.find(b => b.value === branch)!
   const accentColor = { army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b' }[branch]
+
+  // Notices from Supabase
+  const [notices, setNotices] = useState<Notice[]>([])
+  useEffect(() => {
+    const fetchNotices = async () => {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('notices')
+        .select('*')
+        .order('created_at', { ascending: false })
+      if (data) setNotices(data)
+    }
+    fetchNotices()
+  }, [])
 
   // D-Day
   const dday = useMemo(() => {
@@ -47,12 +59,16 @@ export default function Home() {
     return { total, passed, remaining, percent: Math.round(percent * 10) / 10, discharge }
   }, [enlistDate, branch])
 
-  // Vacation D-Day
-  const vacationInfo = useMemo(() => {
-    if (typeof window === 'undefined') return null
-    const records = loadVacationRecords()
-    return nextVacationDDay(records)
-  }, [loading]) // Reload when auth/profile loading finishes, effectively one-time or on re-render
+  // Vacation D-Day from Supabase
+  const [vacationInfo, setVacationInfo] = useState<{ days: number; record: any } | null>(null)
+  useEffect(() => {
+    const load = async () => {
+      if (!user) return
+      const records = await loadVacationRecords(user.id)
+      setVacationInfo(nextVacationDDay(records))
+    }
+    load()
+  }, [user, loading])
 
 
   const circleSize = 100
@@ -121,10 +137,10 @@ export default function Home() {
         <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
           📋 공지사항
         </h3>
-        {NOTICES.map((n, i) => (
+        {notices.map((n, i) => (
           <div key={n.id} style={{
             padding: '10px 0',
-            borderBottom: i < NOTICES.length - 1 ? '1px solid #f1f5f9' : 'none',
+            borderBottom: i < notices.length - 1 ? '1px solid #f1f5f9' : 'none',
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{n.title}</span>

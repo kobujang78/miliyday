@@ -1,4 +1,5 @@
 import type { Branch } from '@/components/RankIcon'
+import { createClient } from '@/lib/supabase'
 
 /**
  * 휴가 종류
@@ -50,39 +51,67 @@ export interface VacationBudget {
   remaining: number
 }
 
-const STORAGE_KEY = 'mili_vacation_records'
-const BUDGET_KEY = 'mili_vacation_budgets'
+// ── Supabase-backed CRUD ──
 
-/**
- * localStorage에서 휴가 기록을 로드합니다.
- */
-export function loadVacationRecords(): VacationRecord[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
+export async function loadVacationRecords(userId?: string): Promise<VacationRecord[]> {
+  if (!userId) return []
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('vacation_records')
+    .select('*')
+    .eq('user_id', userId)
+    .order('start_date', { ascending: true })
+
+  if (error || !data) return []
+  return data.map(r => ({
+    id: r.id,
+    type: r.type as VacationType,
+    title: r.title,
+    startDate: r.start_date,
+    endDate: r.end_date,
+    days: r.days,
+    memo: r.memo || undefined,
+  }))
 }
 
-/**
- * 휴가 기록을 localStorage에 저장합니다.
- */
-export function saveVacationRecords(records: VacationRecord[]) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records))
+export async function addVacationRecord(userId: string, record: Omit<VacationRecord, 'id'>): Promise<VacationRecord | null> {
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('vacation_records')
+    .insert({
+      user_id: userId,
+      type: record.type,
+      title: record.title,
+      start_date: record.startDate,
+      end_date: record.endDate,
+      days: record.days,
+      memo: record.memo || null,
+    })
+    .select()
+    .single()
+
+  if (error || !data) return null
+  return {
+    id: data.id,
+    type: data.type as VacationType,
+    title: data.title,
+    startDate: data.start_date,
+    endDate: data.end_date,
+    days: data.days,
+    memo: data.memo || undefined,
+  }
 }
 
-/**
- * 휴가 예산(총 일수)을 로드합니다.
- */
-export function loadVacationBudgets(branch: Branch): Record<VacationType, number> {
-  if (typeof window === 'undefined') return getDefaultBudgets(branch)
-  try {
-    const raw = localStorage.getItem(BUDGET_KEY)
-    if (raw) return JSON.parse(raw)
-  } catch { /* ignore */ }
-  return getDefaultBudgets(branch)
+export async function deleteVacationRecord(recordId: string): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('vacation_records')
+    .delete()
+    .eq('id', recordId)
+  return !error
 }
+
+// ── Vacation Budgets ──
 
 export function getDefaultBudgets(branch: Branch): Record<VacationType, number> {
   return {
@@ -94,23 +123,48 @@ export function getDefaultBudgets(branch: Branch): Record<VacationType, number> 
   }
 }
 
-export function saveVacationBudgets(budgets: Record<VacationType, number>) {
-  if (typeof window === 'undefined') return
-  localStorage.setItem(BUDGET_KEY, JSON.stringify(budgets))
+export async function loadVacationBudgets(userId: string | undefined, branch: Branch): Promise<Record<VacationType, number>> {
+  if (!userId) return getDefaultBudgets(branch)
+  const supabase = createClient()
+  const { data, error } = await supabase
+    .from('vacation_budgets')
+    .select('*')
+    .eq('user_id', userId)
+    .single()
+
+  if (error || !data) return getDefaultBudgets(branch)
+  return {
+    regular: data.regular,
+    reward: data.reward,
+    consolation: data.consolation,
+    petition: data.petition,
+    other: data.other,
+  }
 }
 
-/**
- * 두 날짜 사이의 일수를 계산합니다 (양쪽 포함).
- */
+export async function saveVacationBudgets(userId: string, budgets: Record<VacationType, number>): Promise<boolean> {
+  const supabase = createClient()
+  const { error } = await supabase
+    .from('vacation_budgets')
+    .upsert({
+      user_id: userId,
+      regular: budgets.regular,
+      reward: budgets.reward,
+      consolation: budgets.consolation,
+      petition: budgets.petition,
+      other: budgets.other,
+    }, { onConflict: 'user_id' })
+  return !error
+}
+
+// ── Pure utility functions (unchanged) ──
+
 export function daysBetweenInclusive(start: string, end: string): number {
   const a = new Date(start)
   const b = new Date(end)
   return Math.max(1, Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000)) + 1)
 }
 
-/**
- * 사용한 휴가 일수를 종류별로 합산합니다.
- */
 export function calcUsedDays(records: VacationRecord[]): Record<VacationType, number> {
   const used: Record<VacationType, number> = { regular: 0, reward: 0, consolation: 0, petition: 0, other: 0 }
   for (const r of records) {
@@ -119,9 +173,6 @@ export function calcUsedDays(records: VacationRecord[]): Record<VacationType, nu
   return used
 }
 
-/**
- * 다음 휴가까지 남은 일수를 계산합니다 (등록된 미래 휴가 기준).
- */
 export function nextVacationDDay(records: VacationRecord[]): { days: number; record: VacationRecord } | null {
   const today = new Date()
   today.setHours(0, 0, 0, 0)

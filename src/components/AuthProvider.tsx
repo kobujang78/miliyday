@@ -19,6 +19,7 @@ interface AuthContextType {
     loading: boolean
     isGuest: boolean
     signInWithGoogle: () => Promise<void>
+    signInWithOAuth: (provider: 'google' | 'kakao' | 'apple' | 'github') => Promise<void>
     signInWithEmail: (email: string, password: string) => Promise<{ error: any }>
     signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>
     signOut: () => Promise<void>
@@ -30,6 +31,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
     user: null, profile: null, loading: true, isGuest: false,
     signInWithGoogle: async () => { },
+    signInWithOAuth: async () => { },
     signInWithEmail: async () => ({ error: 'Not implemented' }),
     signUpWithEmail: async () => ({ error: 'Not implemented' }),
     signOut: async () => { },
@@ -116,13 +118,17 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         }
     }, [supabase, fetchProfile])
 
-    const signInWithGoogle = async () => {
+    const signInWithOAuth = async (provider: 'google' | 'kakao' | 'apple' | 'github') => {
         await supabase.auth.signInWithOAuth({
-            provider: 'google',
+            provider,
             options: {
                 redirectTo: `${window.location.origin}/auth/callback`,
             },
         })
+    }
+
+    const signInWithGoogle = async () => {
+        await signInWithOAuth('google')
     }
 
     const signInWithEmail = async (email: string, password: string) => {
@@ -178,7 +184,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     return (
         <AuthContext.Provider value={{
             user, profile, loading, isGuest,
-            signInWithGoogle, signInWithEmail, signUpWithEmail, signOut, setGuestMode, refreshProfile,
+            signInWithGoogle, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, setGuestMode, refreshProfile,
             updateProfile,
         }}>
             {children}

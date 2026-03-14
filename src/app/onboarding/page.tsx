@@ -6,17 +6,19 @@ import { createClient } from '@/lib/supabase'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 
 export default function OnboardingPage() {
-    const { user, isGuest, signInWithGoogle, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
+    const { user, isGuest, signInWithOAuth, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
     const router = useRouter()
     const [step, setStep] = useState<'login' | 'profile'>('login')
-    const [authMode, setAuthMode] = useState<'selection' | 'login' | 'signup'>('selection')
+    const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
+    const [passwordConfirm, setPasswordConfirm] = useState('')
     const [name, setName] = useState('')
     const [branch, setBranch] = useState<Branch>('army')
     const [rank, setRank] = useState<RankLevel>(1)
     const [enlistDate, setEnlistDate] = useState('')
     const [saving, setSaving] = useState(false)
+    const [authError, setAuthError] = useState('')
 
     // Sync step with auth status
     useEffect(() => {
@@ -38,14 +40,29 @@ export default function OnboardingPage() {
     }
 
     const handleEmailAuth = async () => {
-        if (!email || !password) { alert('이메일과 비밀번호를 입력해주세요'); return }
+        if (!email || !password) { setAuthError('이메일과 비밀번호를 입력해주세요'); return }
+        if (authMode === 'signup' && password !== passwordConfirm) {
+            setAuthError('비밀번호가 일치하지 않습니다')
+            return
+        }
+        if (authMode === 'signup' && password.length < 6) {
+            setAuthError('비밀번호는 6자 이상이어야 합니다')
+            return
+        }
+        setAuthError('')
         setSaving(true)
         const { error } = authMode === 'login'
             ? await signInWithEmail(email, password)
             : await signUpWithEmail(email, password)
 
         if (error) {
-            alert(error.message || '인증에 실패했습니다')
+            if (error.message?.includes('Invalid login')) {
+                setAuthError('이메일 또는 비밀번호가 올바르지 않습니다')
+            } else if (error.message?.includes('already registered')) {
+                setAuthError('이미 가입된 이메일입니다. 로그인해주세요.')
+            } else {
+                setAuthError(error.message || '인증에 실패했습니다')
+            }
             setSaving(false)
         } else {
             if (authMode === 'signup') {
@@ -61,7 +78,6 @@ export default function OnboardingPage() {
 
         try {
             if (user) {
-                // Save to Supabase
                 const supabase = createClient()
                 const { error } = await supabase.from('profiles').upsert({
                     id: user.id,
@@ -80,13 +96,11 @@ export default function OnboardingPage() {
                 }
             }
 
-            // Also save to localStorage for immediate use
             localStorage.setItem('mili_profile', JSON.stringify({
                 name, branch, rank, enlistDate
             }))
             localStorage.setItem('mili_onboarded', 'true')
 
-            // Refresh AuthProvider profile so all pages show correct data
             if (user) {
                 await refreshProfile()
             }
@@ -99,6 +113,13 @@ export default function OnboardingPage() {
         setSaving(false)
     }
 
+    // Shared input style
+    const inputStyle = {
+        width: '100%', padding: '13px 16px', border: '1.5px solid #e5e7eb', borderRadius: '12px',
+        fontSize: '14px', outline: 'none', background: '#f8fafc', boxSizing: 'border-box' as const,
+        transition: 'border-color 0.2s',
+    }
+
     return (
         <div style={{
             minHeight: '100dvh', display: 'flex', flexDirection: 'column',
@@ -108,15 +129,16 @@ export default function OnboardingPage() {
         }}>
             <div style={{
                 width: '100%', maxWidth: '400px',
-                background: 'rgba(255,255,255,0.95)', borderRadius: '24px',
-                padding: '32px 24px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+                background: 'rgba(255,255,255,0.97)', borderRadius: '24px',
+                padding: '36px 28px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
                 backdropFilter: 'blur(20px)',
                 transition: 'all 0.3s ease',
             }}>
                 {/* Logo */}
-                <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div style={{ textAlign: 'center', marginBottom: step === 'login' ? '28px' : '24px' }}>
+                    <div style={{ fontSize: '40px', marginBottom: '8px' }}>🎖️</div>
                     <div style={{
-                        fontSize: '32px', fontWeight: 900, color: '#0f172a',
+                        fontSize: '28px', fontWeight: 900, color: '#0f172a',
                         letterSpacing: '-0.03em',
                     }}>슬기로운 병영생활</div>
                     <div style={{ fontSize: '13px', color: '#64748b', marginTop: '4px' }}>
@@ -126,150 +148,174 @@ export default function OnboardingPage() {
 
                 {step === 'login' ? (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                        {authMode === 'selection' ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                                <button onClick={() => setAuthMode('login')} style={{
-                                    width: '100%', padding: '20px', borderRadius: '16px',
-                                    border: 'none', background: '#0f172a',
-                                    color: '#fff', fontSize: '17px', fontWeight: 800, cursor: 'pointer',
-                                    boxShadow: '0 4px 12px rgba(15,23,42,0.2)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
-                                }}>
-                                    🔑 로그인
-                                </button>
-                                <button onClick={() => setAuthMode('signup')} style={{
-                                    width: '100%', padding: '20px', borderRadius: '16px',
-                                    border: '1.5px solid #0f172a', background: '#fff',
-                                    color: '#0f172a', fontSize: '17px', fontWeight: 800, cursor: 'pointer',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px'
-                                }}>
-                                    📝 회원가입
-                                </button>
-                                <div style={{
-                                    textAlign: 'center', color: '#9ca3af', fontSize: '12px',
-                                    margin: '8px 0', position: 'relative',
-                                }}>
-                                    <span style={{ background: 'rgba(255,255,255,0.95)', padding: '0 12px', position: 'relative', zIndex: 1 }}>또는</span>
-                                    <div style={{
-                                        position: 'absolute', top: '50%', left: 0, right: 0,
-                                        height: '1px', background: '#e5e7eb',
-                                    }} />
-                                </div>
-                                <button onClick={handleGuestContinue} style={{
-                                    width: '100%', padding: '14px', borderRadius: '12px',
-                                    border: 'none', background: '#f1f5f9',
-                                    fontSize: '14px', fontWeight: 600, cursor: 'pointer',
-                                    color: '#64748b',
-                                }}>
-                                    로그인 없이 비회원으로 체험하기
-                                </button>
-                            </div>
-                        ) : authMode === 'login' ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>로그인</h2>
-                                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>이메일 또는 구글로 로그인하세요</p>
-                                </div>
 
-                                <button onClick={signInWithGoogle} style={{
-                                    width: '100%', padding: '14px', borderRadius: '12px',
-                                    border: '1px solid #e5e7eb', background: '#fff',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                        {/* ── 로그인/회원가입 탭 ── */}
+                        <div style={{
+                            display: 'flex', background: '#f1f5f9', borderRadius: '12px', padding: '3px',
+                            marginBottom: '4px',
+                        }}>
+                            {(['login', 'signup'] as const).map(mode => (
+                                <button key={mode} onClick={() => { setAuthMode(mode); setAuthError('') }} style={{
+                                    flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                                    background: authMode === mode ? '#fff' : 'transparent',
+                                    color: authMode === mode ? '#0f172a' : '#9ca3af',
                                     fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-                                    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                                    color: '#0f172a',
+                                    boxShadow: authMode === mode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+                                    transition: 'all 0.2s',
                                 }}>
-                                    <svg width="18" height="18" viewBox="0 0 24 24">
-                                        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
-                                        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-                                        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-                                        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-                                    </svg>
-                                    Google로 계속하기
+                                    {mode === 'login' ? '로그인' : '회원가입'}
                                 </button>
+                            ))}
+                        </div>
 
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                    <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-                                    <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600 }}>또는 이메일</span>
-                                    <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
-                                </div>
+                        {/* ── 소셜 로그인 버튼들 ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {/* Google */}
+                            <button onClick={() => signInWithOAuth('google')} style={{
+                                width: '100%', padding: '13px', borderRadius: '12px',
+                                border: '1px solid #e5e7eb', background: '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                                fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                                boxShadow: '0 1px 4px rgba(0,0,0,0.04)',
+                                color: '#0f172a', transition: 'all 0.2s',
+                            }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24">
+                                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
+                                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+                                </svg>
+                                Google로 {authMode === 'login' ? '로그인' : '가입'}
+                            </button>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <input
-                                        type="email" placeholder="이메일 주소" value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                        style={{
-                                            width: '100%', padding: '12px 16px', border: '1.5px solid #e5e7eb', borderRadius: '12px',
-                                            fontSize: '14px', outline: 'none', background: '#f8fafc'
-                                        }}
-                                    />
-                                    <input
-                                        type="password" placeholder="비밀번호" value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                        style={{
-                                            width: '100%', padding: '12px 16px', border: '1.5px solid #e5e7eb', borderRadius: '12px',
-                                            fontSize: '14px', outline: 'none', background: '#f8fafc'
-                                        }}
-                                    />
-                                    <button onClick={handleEmailAuth} disabled={saving} style={{
-                                        width: '100%', padding: '14px', borderRadius: '12px',
-                                        border: 'none', background: '#0f172a',
-                                        color: '#fff', fontSize: '15px', fontWeight: 800, cursor: 'pointer',
-                                        opacity: saving ? 0.6 : 1, transition: 'all 0.2s', marginTop: '4px'
-                                    }}>
-                                        {saving ? '로그인 중...' : '로그인'}
-                                    </button>
-                                </div>
+                            {/* Kakao */}
+                            <button onClick={() => signInWithOAuth('kakao')} style={{
+                                width: '100%', padding: '13px', borderRadius: '12px',
+                                border: 'none', background: '#FEE500',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                                fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                                color: '#191919', transition: 'all 0.2s',
+                            }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#191919">
+                                    <path d="M12 3C6.477 3 2 6.463 2 10.691c0 2.72 1.8 5.106 4.5 6.453-.199.744-.722 2.694-.827 3.112-.128.51.187.503.393.366.162-.107 2.576-1.753 3.62-2.462.743.104 1.507.16 2.314.16 5.523 0 10-3.463 10-7.629S17.523 3 12 3z"/>
+                                </svg>
+                                카카오로 {authMode === 'login' ? '로그인' : '가입'}
+                            </button>
 
-                                <button onClick={() => setAuthMode('selection')} style={{
-                                    background: 'none', border: 'none', color: '#64748b',
-                                    fontSize: '13px', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline'
-                                }}>
-                                    처음으로 돌아가기
-                                </button>
-                            </div>
-                        ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                                <div style={{ textAlign: 'center' }}>
-                                    <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>회원가입</h2>
-                                    <p style={{ margin: '4px 0 0', fontSize: '13px', color: '#64748b' }}>새로운 군 생활의 시작을 함께하세요</p>
-                                </div>
+                            {/* Apple */}
+                            <button onClick={() => signInWithOAuth('apple')} style={{
+                                width: '100%', padding: '13px', borderRadius: '12px',
+                                border: 'none', background: '#000',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                                fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                                color: '#fff', transition: 'all 0.2s',
+                            }}>
+                                <svg width="16" height="18" viewBox="0 0 16 20" fill="#fff">
+                                    <path d="M13.34 10.18c-.03-2.31 1.89-3.42 1.97-3.47-1.07-1.57-2.74-1.78-3.34-1.81-1.42-.14-2.77.84-3.49.84-.72 0-1.83-.82-3.01-.8-1.55.02-2.98.9-3.78 2.28-1.61 2.8-.41 6.95 1.16 9.22.77 1.11 1.69 2.37 2.9 2.32 1.16-.05 1.6-.75 3-.75 1.39 0 1.79.75 3.01.73 1.25-.02 2.05-1.13 2.81-2.25.89-1.29 1.25-2.54 1.27-2.6-.03-.01-2.44-.94-2.47-3.71zM11.05 3.28c.64-.78 1.07-1.86.96-2.94-.92.04-2.03.61-2.69 1.39-.59.68-1.1 1.77-.96 2.81 1.03.08 2.07-.52 2.69-1.26z" />
+                                </svg>
+                                Apple로 {authMode === 'login' ? '로그인' : '가입'}
+                            </button>
 
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                                    <input
-                                        type="email" placeholder="이메일 주소" value={email}
-                                        onChange={e => setEmail(e.target.value)}
-                                        style={{
-                                            width: '100%', padding: '12px 16px', border: '1.5px solid #e5e7eb', borderRadius: '12px',
-                                            fontSize: '14px', outline: 'none', background: '#f8fafc'
-                                        }}
-                                    />
-                                    <input
-                                        type="password" placeholder="비밀번호 (6자 이상)" value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                        style={{
-                                            width: '100%', padding: '12px 16px', border: '1.5px solid #e5e7eb', borderRadius: '12px',
-                                            fontSize: '14px', outline: 'none', background: '#f8fafc'
-                                        }}
-                                    />
-                                    <button onClick={handleEmailAuth} disabled={saving} style={{
-                                        width: '100%', padding: '14px', borderRadius: '12px',
-                                        border: 'none', background: '#0f172a',
-                                        color: '#fff', fontSize: '15px', fontWeight: 800, cursor: 'pointer',
-                                        opacity: saving ? 0.6 : 1, transition: 'all 0.2s', marginTop: '4px'
-                                    }}>
-                                        {saving ? '가입 진행 중...' : '계정 만들기'}
-                                    </button>
-                                </div>
+                            {/* GitHub */}
+                            <button onClick={() => signInWithOAuth('github')} style={{
+                                width: '100%', padding: '13px', borderRadius: '12px',
+                                border: '1px solid #d1d5db', background: '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                                fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                                color: '#24292f', transition: 'all 0.2s',
+                            }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="#24292f">
+                                    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                                </svg>
+                                GitHub로 {authMode === 'login' ? '로그인' : '가입'}
+                            </button>
+                        </div>
 
-                                <button onClick={() => setAuthMode('selection')} style={{
-                                    background: 'none', border: 'none', color: '#64748b',
-                                    fontSize: '13px', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline'
-                                }}>
-                                    처음으로 돌아가기
-                                </button>
-                            </div>
-                        )}
+                        {/* ── 구분선 ── */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '4px 0' }}>
+                            <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                            <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 600 }}>또는 이메일</span>
+                            <div style={{ flex: 1, height: '1px', background: '#e5e7eb' }} />
+                        </div>
+
+                        {/* ── 이메일/비밀번호 입력 ── */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            <input
+                                type="email" placeholder="이메일 주소" value={email}
+                                onChange={e => { setEmail(e.target.value); setAuthError('') }}
+                                onKeyDown={e => e.key === 'Enter' && handleEmailAuth()}
+                                style={inputStyle}
+                            />
+                            <input
+                                type="password"
+                                placeholder={authMode === 'signup' ? '비밀번호 (6자 이상)' : '비밀번호'}
+                                value={password}
+                                onChange={e => { setPassword(e.target.value); setAuthError('') }}
+                                onKeyDown={e => e.key === 'Enter' && handleEmailAuth()}
+                                style={inputStyle}
+                            />
+                            {authMode === 'signup' && (
+                                <input
+                                    type="password"
+                                    placeholder="비밀번호 확인"
+                                    value={passwordConfirm}
+                                    onChange={e => { setPasswordConfirm(e.target.value); setAuthError('') }}
+                                    onKeyDown={e => e.key === 'Enter' && handleEmailAuth()}
+                                    style={inputStyle}
+                                />
+                            )}
+
+                            {/* Error message */}
+                            {authError && (
+                                <div style={{
+                                    padding: '10px 14px', borderRadius: '10px',
+                                    background: '#fef2f2', border: '1px solid #fee2e2',
+                                    color: '#dc2626', fontSize: '12px', fontWeight: 600,
+                                }}>⚠️ {authError}</div>
+                            )}
+
+                            <button onClick={handleEmailAuth} disabled={saving} style={{
+                                width: '100%', padding: '14px', borderRadius: '12px',
+                                border: 'none', background: '#0f172a',
+                                color: '#fff', fontSize: '15px', fontWeight: 800, cursor: 'pointer',
+                                opacity: saving ? 0.6 : 1, transition: 'all 0.2s',
+                            }}>
+                                {saving
+                                    ? (authMode === 'login' ? '로그인 중...' : '가입 진행 중...')
+                                    : (authMode === 'login' ? '이메일로 로그인' : '이메일로 가입하기')
+                                }
+                            </button>
+                        </div>
+
+                        {/* ── 게스트 모드 ── */}
+                        <div style={{
+                            textAlign: 'center', color: '#9ca3af', fontSize: '12px',
+                            margin: '8px 0 0', position: 'relative',
+                        }}>
+                            <span style={{ background: 'rgba(255,255,255,0.97)', padding: '0 12px', position: 'relative', zIndex: 1 }}>또는</span>
+                            <div style={{
+                                position: 'absolute', top: '50%', left: 0, right: 0,
+                                height: '1px', background: '#e5e7eb',
+                            }} />
+                        </div>
+                        <button onClick={handleGuestContinue} style={{
+                            width: '100%', padding: '13px', borderRadius: '12px',
+                            border: 'none', background: '#f1f5f9',
+                            fontSize: '13px', fontWeight: 600, cursor: 'pointer',
+                            color: '#64748b', transition: 'all 0.2s',
+                        }}>
+                            로그인 없이 비회원으로 체험하기
+                        </button>
+
+                        {/* ── 안내 문구 ── */}
+                        <div style={{ textAlign: 'center', marginTop: '4px' }}>
+                            <p style={{ margin: 0, fontSize: '11px', color: '#9ca3af', lineHeight: 1.5 }}>
+                                {authMode === 'login'
+                                    ? <>아직 계정이 없으신가요? <button onClick={() => { setAuthMode('signup'); setAuthError('') }} style={{ background: 'none', border: 'none', color: '#3b82f6', fontWeight: 700, cursor: 'pointer', fontSize: '11px', padding: 0, textDecoration: 'underline' }}>회원가입</button></>
+                                    : <>이미 계정이 있으신가요? <button onClick={() => { setAuthMode('login'); setAuthError('') }} style={{ background: 'none', border: 'none', color: '#3b82f6', fontWeight: 700, cursor: 'pointer', fontSize: '11px', padding: 0, textDecoration: 'underline' }}>로그인</button></>
+                                }
+                            </p>
+                        </div>
                     </div>
                 ) : (
                     <>

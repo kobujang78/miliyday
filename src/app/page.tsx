@@ -34,6 +34,8 @@ export default function Home() {
 
   // Notices from Supabase
   const [notices, setNotices] = useState<Notice[]>([])
+  const [activeNoticeIndex, setActiveNoticeIndex] = useState(0)
+
   useEffect(() => {
     const fetchNotices = async () => {
       const supabase = createClient()
@@ -45,6 +47,15 @@ export default function Home() {
     }
     fetchNotices()
   }, [])
+
+  // Notice Carousel Timer
+  useEffect(() => {
+    if (notices.length <= 1) return
+    const interval = setInterval(() => {
+      setActiveNoticeIndex(prev => (prev + 1) % notices.length)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [notices])
 
   // D-Day
   const dday = useMemo(() => {
@@ -145,19 +156,43 @@ export default function Home() {
       }}>
         <h3 style={{ margin: '0 0 10px', fontSize: '14px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '6px' }}>
           📋 공지사항
+          {notices.length > 1 && (
+            <span style={{ fontSize: '10px', fontWeight: 400, color: '#9ca3af', marginLeft: 'auto' }}>
+              {activeNoticeIndex + 1} / {notices.length}
+            </span>
+          )}
         </h3>
-        {notices.map((n, i) => (
-          <div key={n.id} style={{
-            padding: '10px 0',
-            borderBottom: i < notices.length - 1 ? '1px solid #f1f5f9' : 'none',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{n.title}</span>
-              <span style={{ fontSize: '10px', color: '#9ca3af' }}>{n.date}</span>
+        
+        <div style={{ position: 'relative', height: '56px', overflow: 'hidden' }}>
+          {notices.map((n, i) => (
+            <div 
+              key={n.id} 
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                opacity: i === activeNoticeIndex ? 1 : 0,
+                transform: `translateY(${i === activeNoticeIndex ? '0' : '20px'})`,
+                transition: 'all 0.5s ease-in-out',
+                pointerEvents: i === activeNoticeIndex ? 'auto' : 'none',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{n.title}</span>
+                <span style={{ fontSize: '10px', color: '#9ca3af' }}>{n.date}</span>
+              </div>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {n.body}
+              </p>
             </div>
-            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', lineHeight: 1.4 }}>{n.body}</p>
-          </div>
-        ))}
+          ))}
+          {notices.length === 0 && (
+            <div style={{ fontSize: '12px', color: '#9ca3af', textAlign: 'center', padding: '10px 0' }}>
+              새로운 공지사항이 없습니다.
+            </div>
+          )}
+        </div>
       </div>
 
 

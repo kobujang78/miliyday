@@ -18,12 +18,6 @@ const navItems: NavItem[] = [
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🏠</span>,
     },
     {
-        href: '/tips',
-        label: '병영꿀팁',
-        matchPaths: ['/tips'],
-        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>💡</span>,
-    },
-    {
         href: '/salary',
         label: '월급/적금',
         matchPaths: ['/salary'],
@@ -42,6 +36,12 @@ const navItems: NavItem[] = [
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🛒</span>,
     },
     {
+        href: '/tips',
+        label: '병영꿀팁',
+        matchPaths: ['/tips'],
+        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>💡</span>,
+    },
+    {
         href: '/share',
         label: '생활공유',
         matchPaths: ['/share'],
@@ -49,7 +49,7 @@ const navItems: NavItem[] = [
     },
     {
         href: '/mypage',
-        label: 'MY',
+        label: '마이페이지',
         matchPaths: ['/mypage'],
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>👤</span>,
     },

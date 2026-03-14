@@ -123,7 +123,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             provider,
             options: {
                 redirectTo: `${window.location.origin}/auth/callback`,
-            },
+            }
         })
     }
 

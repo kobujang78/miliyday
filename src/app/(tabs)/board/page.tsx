@@ -31,9 +31,10 @@ interface Post {
   commentsList?: Comment[]
 }
 
-const CATEGORIES = ['전체', '자유', '질문', '꿀팁', '군사특기', '고민상담']
+const CATEGORIES = ['전체', '공지사항', '자유', '질문', '꿀팁', '군사특기', '고민상담']
 
 const categoryColors: Record<string, string> = {
+  '공지사항': '#ef4444',
   '자유': '#3b82f6',
   '질문': '#10b981',
   '꿀팁': '#f59e0b',
@@ -285,7 +286,7 @@ export default function MilitaryBoardPage() {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', paddingBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>👥 병영게시판</h2>
+        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>👥 커뮤니티</h2>
         <button onClick={() => {
           setNewCategory(activeCategory === '전체' ? '자유' : activeCategory);
           setShowModal(true);
@@ -345,7 +346,7 @@ export default function MilitaryBoardPage() {
                       color: categoryColors[p.category] || '#6b7280',
                     }}>{p.category}</span>
                   )}
-                  {user?.id === p.user_id && (
+                  {(user?.id === p.user_id || user?.user_metadata?.nickname === '관리자' || user?.user_metadata?.display_name === '관리자' || p.profiles?.nickname === '관리자') && (
                     <button onClick={() => handleDeletePost(p.id)} style={{
                       marginLeft: '8px', border: 'none', background: 'none', fontSize: '11px',
                       color: '#ef4444', cursor: 'pointer', padding: '4px'
@@ -462,7 +463,14 @@ export default function MilitaryBoardPage() {
               width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',
               marginBottom: '12px', fontSize: '14px', outline: 'none', background: '#fafbff'
             }}>
-              {CATEGORIES.filter(c => c !== '전체').map(c => <option key={c} value={c}>{c}</option>)}
+              {CATEGORIES.filter(c => c !== '전체').map(c => {
+                 // 공지사항은 관리자만 선택 가능하도록 처리
+                 if (c === '공지사항') {
+                   const isAuthAdmin = user?.user_metadata?.nickname === '관리자' || user?.user_metadata?.display_name === '관리자';
+                   if (!isAuthAdmin) return null;
+                 }
+                 return <option key={c} value={c}>{c}</option>
+              })}
             </select>
 
             <input 

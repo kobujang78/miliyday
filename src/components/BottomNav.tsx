@@ -30,6 +30,12 @@ const navItems: NavItem[] = [
         icon: <span style={{ fontSize: '18px', lineHeight: 1 }}>🗓️</span>,
     },
     {
+        href: '/board',
+        label: '커뮤니티',
+        matchPaths: ['/board'],
+        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>👥</span>,
+    },
+    {
         href: '/market',
         label: '슬병PX',
         matchPaths: ['/market'],
@@ -37,15 +43,9 @@ const navItems: NavItem[] = [
     },
     {
         href: '/benefits',
-        label: '혜택',
+        label: '슬병혜택',
         matchPaths: ['/benefits'],
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🎁</span>,
-    },
-    {
-        href: '/board',
-        label: '병영게시판',
-        matchPaths: ['/board'],
-        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>👥</span>,
     },
     {
         href: '/share',

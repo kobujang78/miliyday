@@ -31,7 +31,7 @@ interface Post {
   commentsList?: Comment[]
 }
 
-const CATEGORIES = ['전체', '공지사항', 'PX핫템', '할인정보', '행사안내', '프로모션', '병영혜택']
+const CATEGORIES = ['전체', 'PX핫템', '할인정보', '행사안내', '프로모션', '병영혜택']
 
 const categoryColors: Record<string, string> = {
   '공지사항': '#ef4444',
@@ -286,7 +286,7 @@ export default function BenefitsPage() {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', paddingBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>🎁 혜택</h2>
+        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>🎁 슬병혜택</h2>
         <button onClick={() => {
           setNewCategory(activeCategory === '전체' ? '공지사항' : activeCategory);
           setShowModal(true);
@@ -346,7 +346,7 @@ export default function BenefitsPage() {
                       color: categoryColors[p.category] || '#6b7280',
                     }}>{p.category}</span>
                   )}
-                  {user?.id === p.user_id && (
+                  {(user?.id === p.user_id || user?.user_metadata?.nickname === '관리자' || user?.user_metadata?.display_name === '관리자' || p.profiles?.nickname === '관리자') && (
                     <button onClick={() => handleDeletePost(p.id)} style={{
                       marginLeft: '8px', border: 'none', background: 'none', fontSize: '11px',
                       color: '#ef4444', cursor: 'pointer', padding: '4px'

@@ -23,6 +23,10 @@ export default function MyPage() {
   const [inviteCount, setInviteCount] = useState(0)
   const [codeCopied, setCodeCopied] = useState(false)
 
+  const [myPosts, setMyPosts] = useState<any[]>([])
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'info' | 'myPosts' | 'bookmarks'>('info')
+
   // Editing state for profile
   const [editName, setEditName] = useState('')
   const [editBranch, setEditBranch] = useState<Branch>('army')
@@ -165,7 +169,7 @@ export default function MyPage() {
   const accentColor = { army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b' }[branch]
   const promotionDates = useMemo(() => getPromotionDates(enlistDate, branch), [enlistDate, branch])
 
-  // Fetch MiliPoint data
+  // Fetch MiliPoint data and Posts data
   useEffect(() => {
     if (!user) return
     const fetchPointData = async () => {
@@ -178,7 +182,26 @@ export default function MyPage() {
       setMyInviteCode(code)
       setInviteCount(stats.count)
     }
+    const fetchMyPostsData = async () => {
+      const supabase = createClient()
+      const { data: mPosts } = await supabase
+        .from('posts')
+        .select('id, title, category, board_type, created_at, likes_count, comments_count')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      if (mPosts) setMyPosts(mPosts)
+
+      const { data: bPosts } = await supabase
+        .from('post_bookmarks')
+        .select('post_id, posts(id, title, category, board_type, created_at, likes_count, comments_count)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+      if (bPosts) {
+        setBookmarkedPosts(bPosts.map((b: any) => b.posts).filter(Boolean))
+      }
+    }
     fetchPointData()
+    fetchMyPostsData()
   }, [user])
 
   const handleCopyInviteCode = async () => {
@@ -209,8 +232,6 @@ export default function MyPage() {
 
   const MENU_ITEMS = [
     { icon: '💰', label: '포인트 내역', desc: '적립/사용 내역 확인', href: '/points' },
-    { icon: '📝', label: '내 작성글', desc: '내가 작성한 글 모아보기' },
-    { icon: '❤️', label: '찜 목록', desc: '찜한 장터 아이템' },
     { icon: '🔔', label: '알림 설정', desc: '푸시 알림 관리' },
     { icon: '🛡️', label: '개인정보', desc: '개인정보 처리방침' },
     { icon: 'ℹ️', label: '앱 정보', desc: '슬기로운 병영생활 v0.1' },
@@ -488,7 +509,16 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 밀포인트 & 초대 */}
+      {/* 탭 네비게이션 */}
+      <div style={{ display: 'flex', gap: '8px', padding: '0 4px', marginBottom: '4px' }}>
+        <button onClick={() => setActiveTab('info')} style={{ flex: 1, padding: '12px', borderRadius: '14px', border: 'none', fontSize: '14px', fontWeight: 700, background: activeTab === 'info' ? '#0f172a' : '#f8fafc', color: activeTab === 'info' ? '#fff' : '#64748b', cursor: 'pointer', transition: 'all 0.2s' }}>내 정보</button>
+        <button onClick={() => setActiveTab('myPosts')} style={{ flex: 1, padding: '12px', borderRadius: '14px', border: 'none', fontSize: '14px', fontWeight: 700, background: activeTab === 'myPosts' ? '#0f172a' : '#f8fafc', color: activeTab === 'myPosts' ? '#fff' : '#64748b', cursor: 'pointer', transition: 'all 0.2s' }}>내 작성글</button>
+        <button onClick={() => setActiveTab('bookmarks')} style={{ flex: 1, padding: '12px', borderRadius: '14px', border: 'none', fontSize: '14px', fontWeight: 700, background: activeTab === 'bookmarks' ? '#0f172a' : '#f8fafc', color: activeTab === 'bookmarks' ? '#fff' : '#64748b', cursor: 'pointer', transition: 'all 0.2s' }}>찜한 글</button>
+      </div>
+
+      {activeTab === 'info' && (
+        <>
+          {/* 밀포인트 & 초대 */}
       <div style={{
         background: '#fff', borderRadius: '16px', padding: '20px',
         boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
@@ -568,6 +598,44 @@ export default function MyPage() {
           </div>
         ))}
       </div>
+      </>
+      )}
+
+      {activeTab === 'myPosts' && (
+        <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>📝 내가 쓴 글</h3>
+          {myPosts.length === 0 ? (
+            <div style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', padding: '40px 0' }}>작성한 게시글이 없습니다.</div>
+          ) : myPosts.map(p => (
+            <div key={p.id} onClick={() => router.push(`/${p.board_type || 'benefits'}`)} style={{ padding: '16px', border: '1px solid #f1f5f9', borderRadius: '14px', cursor: 'pointer', background: '#f8fafc' }}>
+               <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>{p.title}</div>
+               <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                 <span style={{ fontWeight: 600, color: accentColor }}>{p.category || '일반'}</span>
+                 <span>👍 {p.likes_count || 0}</span>
+                 <span>💬 {p.comments_count || 0}</span>
+               </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {activeTab === 'bookmarks' && (
+        <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>❤️ 찜한 글</h3>
+          {bookmarkedPosts.length === 0 ? (
+            <div style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', padding: '40px 0' }}>찜한 게시글이 없습니다.</div>
+          ) : bookmarkedPosts.map(p => (
+            <div key={p.id} onClick={() => router.push(`/${p.board_type || 'benefits'}`)} style={{ padding: '16px', border: '1px solid #f1f5f9', borderRadius: '14px', cursor: 'pointer', background: '#f8fafc' }}>
+               <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>{p.title}</div>
+               <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                 <span style={{ fontWeight: 600, color: accentColor }}>{p.category || '일반'}</span>
+                 <span>👍 {p.likes_count || 0}</span>
+                 <span>💬 {p.comments_count || 0}</span>
+               </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       <button
         onClick={handleSignOut}

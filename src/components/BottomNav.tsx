@@ -36,10 +36,10 @@ const navItems: NavItem[] = [
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🛒</span>,
     },
     {
-        href: '/tips',
-        label: '병영꿀팁',
-        matchPaths: ['/tips'],
-        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>💡</span>,
+        href: '/benefits',
+        label: '병영혜택',
+        matchPaths: ['/benefits'],
+        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🎁</span>,
     },
     {
         href: '/share',

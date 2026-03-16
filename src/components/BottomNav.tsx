@@ -37,21 +37,21 @@ const navItems: NavItem[] = [
     },
     {
         href: '/benefits',
-        label: '병영게시판',
+        label: '혜택',
         matchPaths: ['/benefits'],
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🎁</span>,
+    },
+    {
+        href: '/board',
+        label: '병영게시판',
+        matchPaths: ['/board'],
+        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>👥</span>,
     },
     {
         href: '/share',
         label: '생활공유',
         matchPaths: ['/share'],
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>📸</span>,
-    },
-    {
-        href: '/mypage',
-        label: '마이페이지',
-        matchPaths: ['/mypage'],
-        icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>👤</span>,
     },
 ]
 

@@ -31,18 +31,17 @@ interface Post {
   commentsList?: Comment[]
 }
 
-const CATEGORIES = ['전체', '공지사항', 'PX핫템', '할인정보', '행사안내', '프로모션', '병영혜택']
+const CATEGORIES = ['전체', '자유', '질문', '꿀팁', '군사특기', '고민상담']
 
 const categoryColors: Record<string, string> = {
-  '공지사항': '#ef4444',
-  'PX핫템': '#f59e0b',
-  '할인정보': '#0b6efd',
-  '행사안내': '#10b981',
-  '프로모션': '#8b5cf6',
-  '병영혜택': '#ec4899',
+  '자유': '#3b82f6',
+  '질문': '#10b981',
+  '꿀팁': '#f59e0b',
+  '군사특기': '#8b5cf6',
+  '고민상담': '#ef4444',
 }
 
-export default function BenefitsPage() {
+export default function MilitaryBoardPage() {
   const { user } = useAuth()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
@@ -53,7 +52,7 @@ export default function BenefitsPage() {
   const [showModal, setShowModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newBody, setNewBody] = useState('')
-  const [newCategory, setNewCategory] = useState('공지사항')
+  const [newCategory, setNewCategory] = useState('자유')
   const [newImage, setNewImage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -67,7 +66,7 @@ export default function BenefitsPage() {
     const { data: postsData, error } = await supabase
       .from('posts')
       .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
-      .eq('board_type', 'benefits')
+      .eq('board_type', 'military_board')
       .order('created_at', { ascending: false })
 
     if (!error && postsData) {
@@ -157,7 +156,7 @@ export default function BenefitsPage() {
         body: newBody,
         category: newCategory,
         image_url: newImage || null,
-        board_type: 'benefits',
+        board_type: 'military_board',
         likes_count: 0,
         comments_count: 0,
       })
@@ -172,7 +171,7 @@ export default function BenefitsPage() {
         setTimeout(() => setPointToast(''), 3000)
       }
     }
-    setNewTitle(''); setNewBody(''); setNewImage(''); setNewCategory(activeCategory === '전체' ? '공지사항' : activeCategory)
+    setNewTitle(''); setNewBody(''); setNewImage(''); setNewCategory(activeCategory === '전체' ? '자유' : activeCategory)
     setShowModal(false)
     setIsSubmitting(false)
   }
@@ -286,15 +285,15 @@ export default function BenefitsPage() {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', paddingBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>🎁 혜택</h2>
+        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>👥 병영게시판</h2>
         <button onClick={() => {
-          setNewCategory(activeCategory === '전체' ? '공지사항' : activeCategory);
+          setNewCategory(activeCategory === '전체' ? '자유' : activeCategory);
           setShowModal(true);
         }} style={{
           padding: '8px 16px', borderRadius: '20px', border: 'none',
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
+          background: 'linear-gradient(135deg, #3b82f6, #60a5fa)', color: '#fff',
           fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-          boxShadow: '0 2px 8px rgba(99,102,241,0.3)',
+          boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
         }}>✏️ 글쓰기</button>
       </div>
 
@@ -315,7 +314,7 @@ export default function BenefitsPage() {
         <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af' }}>불러오는 중...</div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '40px', color: '#9ca3af', fontSize: '14px' }}>
-          아직 작성된 혜택 정보가 없습니다
+          아직 작성된 게시글이 없습니다
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -457,7 +456,7 @@ export default function BenefitsPage() {
             background: '#fff', width: '100%', maxWidth: '400px', borderRadius: '24px',
             padding: '24px', paddingBottom: '32px'
           }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>새 혜택 정보 공유</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>새 게시물 작성</h3>
             
             <select value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{
               width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',

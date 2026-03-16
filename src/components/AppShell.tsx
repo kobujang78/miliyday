@@ -69,11 +69,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 }}>슬기로운 병영생활</h1>
 
                 {headerProfile && headerProfile.name ? (
-                    <div style={{
+                    <div 
+                        onClick={() => router.push('/mypage')}
+                        style={{
                         display: 'flex', alignItems: 'center', gap: '6px',
                         padding: '4px 10px 4px 6px',
                         background: `${branchColor}0a`, borderRadius: '20px',
                         border: `1px solid ${branchColor}18`,
+                        cursor: 'pointer',
                     }}>
                         {headerProfile.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element

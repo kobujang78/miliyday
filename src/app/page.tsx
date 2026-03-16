@@ -40,10 +40,20 @@ export default function Home() {
     const fetchNotices = async () => {
       const supabase = createClient()
       const { data } = await supabase
-        .from('notices')
-        .select('*')
+        .from('posts')
+        .select('id, title, body, created_at')
+        .eq('board_type', 'benefits')
+        .eq('category', '공지사항')
         .order('created_at', { ascending: false })
-      if (data) setNotices(data)
+      
+      if (data) {
+        setNotices(data.map(p => ({
+          id: p.id,
+          title: p.title,
+          body: p.body,
+          date: p.created_at
+        })))
+      }
     }
     fetchNotices()
   }, [])

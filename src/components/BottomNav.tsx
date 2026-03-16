@@ -37,7 +37,7 @@ const navItems: NavItem[] = [
     },
     {
         href: '/benefits',
-        label: '병영혜택',
+        label: '병영게시판',
         matchPaths: ['/benefits'],
         icon: <span style={{ fontSize: '20px', lineHeight: 1 }}>🎁</span>,
     },

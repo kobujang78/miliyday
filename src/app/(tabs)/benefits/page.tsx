@@ -31,14 +31,15 @@ interface Post {
   commentsList?: Comment[]
 }
 
-const CATEGORIES = ['전체', 'PX핫아이템', '병영할인', '프로모션 공유', '행사안내', '병영뉴스']
+const CATEGORIES = ['전체', '공지사항', 'PX핫템', '할인정보', '행사안내', '프로모션', '병영혜택']
 
 const categoryColors: Record<string, string> = {
-  'PX핫아이템': '#ef4444',
-  '병영할인': '#0b6efd',
-  '프로모션 공유': '#8b5cf6',
+  '공지사항': '#ef4444',
+  'PX핫템': '#f59e0b',
+  '할인정보': '#0b6efd',
   '행사안내': '#10b981',
-  '병영뉴스': '#f59e0b',
+  '프로모션': '#8b5cf6',
+  '병영혜택': '#ec4899',
 }
 
 export default function BenefitsPage() {
@@ -52,7 +53,7 @@ export default function BenefitsPage() {
   const [showModal, setShowModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newBody, setNewBody] = useState('')
-  const [newCategory, setNewCategory] = useState('PX핫아이템')
+  const [newCategory, setNewCategory] = useState('공지사항')
   const [newImage, setNewImage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -171,7 +172,7 @@ export default function BenefitsPage() {
         setTimeout(() => setPointToast(''), 3000)
       }
     }
-    setNewTitle(''); setNewBody(''); setNewImage(''); setNewCategory('PX핫아이템')
+    setNewTitle(''); setNewBody(''); setNewImage(''); setNewCategory(activeCategory === '전체' ? '공지사항' : activeCategory)
     setShowModal(false)
     setIsSubmitting(false)
   }
@@ -285,8 +286,11 @@ export default function BenefitsPage() {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', paddingBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>🎁 병영혜택</h2>
-        <button onClick={() => setShowModal(true)} style={{
+        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>🎁 병영게시판</h2>
+        <button onClick={() => {
+          setNewCategory(activeCategory === '전체' ? '공지사항' : activeCategory);
+          setShowModal(true);
+        }} style={{
           padding: '8px 16px', borderRadius: '20px', border: 'none',
           background: 'linear-gradient(135deg, #6366f1, #8b5cf6)', color: '#fff',
           fontSize: '13px', fontWeight: 700, cursor: 'pointer',
@@ -363,31 +367,37 @@ export default function BenefitsPage() {
                   </div>
                 )}
 
-                {/* 액션 바 */}
+                {/* 액션 바: 왼쪽 그룹(좋아요, 찜, 댓글) / 오른쪽 그룹(공유) */}
                 <div style={{
-                  display: 'flex', alignItems: 'center', padding: '12px 16px',
-                  borderTop: '1px solid #f1f5f9', gap: '16px'
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px',
+                  borderTop: '1px solid #f1f5f9'
                 }}>
-                  <button onClick={() => toggleLike(p)} style={{
-                    border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
-                    color: p.isLiked ? '#ef4444' : '#64748b', fontSize: '13px', fontWeight: 600, padding: 0
-                  }}>
-                    <span>{p.isLiked ? '❤️' : '🤍'}</span> 좋아요 {p.likes_count}
-                  </button>
-                  <button onClick={() => toggleComments(p)} style={{
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <button onClick={() => toggleLike(p)} style={{
+                      border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                      color: p.isLiked ? '#ef4444' : '#64748b', fontSize: '13px', fontWeight: 600, padding: 0
+                    }}>
+                      <span>{p.isLiked ? '❤️' : '🤍'}</span> {p.likes_count}
+                    </button>
+                    <button onClick={() => toggleBookmark(p)} style={{
+                      border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                      color: p.isBookmarked ? '#8b5cf6' : '#64748b', fontSize: '13px', fontWeight: 600, padding: 0
+                    }}>
+                      <span>{p.isBookmarked ? '🔖' : '📑'}</span>
+                    </button>
+                    <button onClick={() => toggleComments(p)} style={{
+                      border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
+                      color: '#64748b', fontSize: '13px', fontWeight: 600, padding: 0
+                    }}>
+                      <span>💬</span> {p.comments_count}
+                    </button>
+                  </div>
+                  <button onClick={() => handleShare(p)} style={{
                     border: 'none', background: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px',
                     color: '#64748b', fontSize: '13px', fontWeight: 600, padding: 0
                   }}>
-                    <span>💬</span> 댓글 {p.comments_count}
+                    🔗 공유
                   </button>
-                  <div style={{ display: 'flex', gap: '12px', marginLeft: 'auto' }}>
-                    <button onClick={() => toggleBookmark(p)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px', padding: 0 }}>
-                      {p.isBookmarked ? '🔖' : '📑'}
-                    </button>
-                    <button onClick={() => handleShare(p)} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '16px', padding: 0 }}>
-                      🔗
-                    </button>
-                  </div>
                 </div>
 
                 {/* 댓글 영역 */}

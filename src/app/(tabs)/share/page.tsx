@@ -4,7 +4,8 @@ import { useAuth } from '@/components/AuthProvider'
 import RankIcon, { type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import {
-  type FeedItem, loadFeed, addPost, toggleLike, formatTimeAgo
+  type FeedItem, loadFeed, addPost, toggleLike, formatTimeAgo, deleteFeedPost, editFeedPost,
+  loadFeedComments, addFeedComment
 } from '@/lib/shareUtils'
 import { earnContentReward } from '@/lib/pointUtils'
 
@@ -27,13 +28,19 @@ export default function SharePage() {
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Modal state
   const [showModal, setShowModal] = useState(false)
   const [caption, setCaption] = useState('')
   const [visibility, setVisibility] = useState<'public' | 'connections' | 'private'>('connections')
   const [images, setImages] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pointToast, setPointToast] = useState('')
+
+  // Edit Mode state
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editingCaption, setEditingCaption] = useState('')
+
+  // Comment input state
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({})
 
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -48,27 +55,49 @@ export default function SharePage() {
   }, [])
 
   // --- Photo Upload Handling ---
-  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onload = () => {
+          const MAX_WIDTH = 800
+          let w = img.width
+          let h = img.height
+          if (w > MAX_WIDTH) {
+            h = Math.floor((h * MAX_WIDTH) / w)
+            w = MAX_WIDTH
+          }
+          const canvas = document.createElement('canvas')
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')!
+          ctx.drawImage(img, 0, 0, w, h)
+          resolve(canvas.toDataURL('image/webp', 0.8))
+        }
+        img.onerror = reject
+        img.src = e.target?.result as string
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const handleImageSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files
     if (!files) return
 
-    // Convert files to Base64
-    const newImages: string[] = []
-    let processed = 0
-
-    Array.from(files).forEach(file => {
-      const reader = new FileReader()
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          newImages.push(event.target.result as string)
-        }
-        processed++
-        if (processed === files.length) {
-          setImages(prev => [...prev, ...newImages])
-        }
-      }
-      reader.readAsDataURL(file)
-    })
+    // Limit to 4 images to prevent overloaded payload 
+    const filesArray = Array.from(files).slice(0, 4)
+    
+    try {
+      const compressedImages = await Promise.all(
+        filesArray.map(file => compressImage(file))
+      )
+      setImages(prev => [...prev, ...compressedImages].slice(0, 4))
+    } catch {
+      alert('이미지 처리 중 오류가 발생했습니다.')
+    }
 
     // Reset input
     if (fileInputRef.current) fileInputRef.current.value = ''
@@ -140,6 +169,40 @@ export default function SharePage() {
     }
   }
 
+  // --- Comment Handling ---
+  const handleToggleComments = async (post: FeedItem) => {
+    // If closing
+    if (post.showComments) {
+      setFeed(prev => prev.map(p => p.id === post.id ? { ...p, showComments: false } : p))
+      return
+    }
+
+    // If opening, load comments
+    const commentsList = await loadFeedComments(post.id)
+    setFeed(prev => prev.map(p => p.id === post.id ? { ...p, showComments: true, commentsList } : p))
+  }
+
+  const handleAddComment = async (post: FeedItem) => {
+    if (!user) { alert('로그인이 필요합니다.'); return }
+    const text = commentInputs[post.id]?.trim()
+    if (!text) return
+
+    const newComment = await addFeedComment(post.id, user.id, text)
+    if (newComment) {
+      setFeed(prev => prev.map(p => {
+        if (p.id === post.id) {
+          return {
+            ...p,
+            comments: p.comments + 1,
+            commentsList: [...(p.commentsList || []), newComment]
+          }
+        }
+        return p
+      }))
+      setCommentInputs(prev => ({ ...prev, [post.id]: '' }))
+    }
+  }
+
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto' }}>
       <h2 style={{ margin: '0 0 16px', fontSize: '20px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -158,6 +221,9 @@ export default function SharePage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {feed.map(f => {
             const vis = VISIBILITY_MAP[f.visibility] || VISIBILITY_MAP.connections
+            const isOwner = user?.id === f.ownerId
+            const isAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자'
+            
             return (
               <div key={f.id} style={{
                 background: '#fff', borderRadius: '16px', overflow: 'hidden',
@@ -191,17 +257,60 @@ export default function SharePage() {
                       </div>
                     </div>
                   </div>
-                  <span style={{
-                    fontSize: '10px', fontWeight: 600, padding: '4px 8px',
-                    borderRadius: '8px', background: '#f8fafc', color: '#64748b',
-                    border: '1px solid #f1f5f9'
-                  }}>
-                    {vis.icon} {vis.label}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{
+                      fontSize: '10px', fontWeight: 600, padding: '4px 8px',
+                      borderRadius: '8px', background: '#f8fafc', color: '#64748b',
+                      border: '1px solid #f1f5f9'
+                    }}>
+                      {vis.icon} {vis.label}
+                    </span>
+                    {(isOwner || isAdmin) && (
+                      <div style={{ display: 'flex', gap: '4px' }}>
+                        {isOwner && (
+                          <button onClick={() => {
+                            setEditingPostId(f.id)
+                            setEditingCaption(f.caption)
+                          }} style={{
+                            border: '1px solid #e2e8f0', background: '#fff', fontSize: '11px',
+                            color: '#64748b', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px'
+                          }}>수정</button>
+                        )}
+                        <button onClick={async () => {
+                          if (!confirm('정말 이 게시물을 삭제하시겠습니까?')) return
+                          const success = await deleteFeedPost(f.id)
+                          if (success) setFeed(prev => prev.filter(p => p.id !== f.id))
+                        }} style={{
+                          border: 'none', background: '#fee2e2', fontSize: '11px',
+                          color: '#ef4444', cursor: 'pointer', padding: '4px 8px', borderRadius: '8px'
+                        }}>삭제</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Content Text (if present) */}
-                {f.caption && (
+                {editingPostId === f.id ? (
+                  <div style={{ padding: '4px 16px 12px' }}>
+                    <textarea 
+                      value={editingCaption} 
+                      onChange={(e) => setEditingCaption(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', resize: 'vertical', minHeight: '60px' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                      <button onClick={() => setEditingPostId(null)} style={{ padding: '6px 12px', border: 'none', background: '#f1f5f9', color: '#64748b', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>취소</button>
+                      <button onClick={async () => {
+                        const success = await editFeedPost(f.id, editingCaption)
+                        if (success) {
+                          setFeed(prev => prev.map(p => p.id === f.id ? { ...p, caption: editingCaption } : p))
+                          setEditingPostId(null)
+                        } else {
+                          alert('수정 중 오류가 발생했습니다.')
+                        }
+                      }} style={{ padding: '6px 12px', border: 'none', background: '#10b981', color: '#fff', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>저장</button>
+                    </div>
+                  </div>
+                ) : f.caption && (
                   <div style={{ padding: '4px 16px 12px' }}>
                     <p style={{ margin: 0, fontSize: '14px', color: '#334155', lineHeight: 1.5, whiteSpace: 'pre-wrap' }}>
                       {f.caption}
@@ -244,7 +353,7 @@ export default function SharePage() {
                   }}>
                     {f.likes > 0 ? '❤️' : '🤍'} 좋아요 {f.likes > 0 && f.likes}
                   </button>
-                  <button style={{
+                  <button onClick={() => handleToggleComments(f)} style={{
                     display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none',
                     fontSize: '13px', color: '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0
                   }}>
@@ -257,6 +366,49 @@ export default function SharePage() {
                     📤 공유
                   </button>
                 </div>
+
+                {/* Comments Section */}
+                {f.showComments && (
+                  <div style={{ background: '#f8fafc', padding: '12px 16px', borderTop: '1px solid #f1f5f9' }}>
+                    {f.commentsList?.map(c => (
+                      <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                        <div style={{
+                          width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                          background: c.userAvatar ? `url(${c.userAvatar}) center/cover` : '#e2e8f0',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                        }}>
+                          {!c.userAvatar && <RankIcon level={c.userRank as RankLevel} branch={c.userBranch as Branch} size={14} />}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
+                            <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
+                              {c.userName}
+                            </span>
+                            <span style={{ fontSize: '10px', color: '#9ca3af' }}>{formatTimeAgo(c.createdAt)}</span>
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#475569', marginTop: '2px' }}>{c.body}</div>
+                        </div>
+                      </div>
+                    ))}
+                    
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+                      <input 
+                        type="text" placeholder="생활공유 글에 댓글을 남겨보세요..." 
+                        value={commentInputs[f.id] || ''}
+                        onChange={(e) => setCommentInputs(prev => ({ ...prev, [f.id]: e.target.value }))}
+                        onKeyDown={(e) => { if(e.key === 'Enter') handleAddComment(f) }}
+                        style={{
+                          flex: 1, padding: '8px 12px', borderRadius: '16px', border: '1px solid #e2e8f0',
+                          fontSize: '13px', outline: 'none'
+                        }}
+                      />
+                      <button onClick={() => handleAddComment(f)} style={{
+                        padding: '6px 14px', borderRadius: '16px', border: 'none',
+                        background: '#10b981', color: '#fff', fontSize: '12px', fontWeight: 600, cursor: 'pointer'
+                      }}>등록</button>
+                    </div>
+                  </div>
+                )}
               </div>
             )
           })}

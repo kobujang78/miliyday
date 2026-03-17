@@ -186,14 +186,14 @@ export default function MyPage() {
       const supabase = createClient()
       const { data: mPosts } = await supabase
         .from('posts')
-        .select('id, title, category, board_type, created_at, likes_count, comments_count')
+        .select('id, title, body, category, board_type, created_at, likes_count, comments_count')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       if (mPosts) setMyPosts(mPosts)
 
       const { data: bPosts } = await supabase
         .from('post_bookmarks')
-        .select('post_id, posts(id, title, category, board_type, created_at, likes_count, comments_count)')
+        .select('post_id, posts(id, title, body, category, board_type, created_at, likes_count, comments_count)')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       if (bPosts) {
@@ -602,38 +602,74 @@ export default function MyPage() {
       )}
 
       {activeTab === 'myPosts' && (
-        <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>📝 내가 쓴 글</h3>
           {myPosts.length === 0 ? (
-            <div style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', padding: '40px 0' }}>작성한 게시글이 없습니다.</div>
-          ) : myPosts.map(p => (
-            <div key={p.id} onClick={() => router.push(`/${p.board_type || 'benefits'}`)} style={{ padding: '16px', border: '1px solid #f1f5f9', borderRadius: '14px', cursor: 'pointer', background: '#f8fafc' }}>
-               <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>{p.title}</div>
-               <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                 <span style={{ fontWeight: 600, color: accentColor }}>{p.category || '일반'}</span>
-                 <span>👍 {p.likes_count || 0}</span>
-                 <span>💬 {p.comments_count || 0}</span>
-               </div>
-            </div>
-          ))}
+            <div style={{ textAlign: 'center', padding: '30px', color: '#9ca3af', fontSize: '13px', background: '#fff', borderRadius: '16px' }}>작성한 글이 없습니다</div>
+          ) : (
+            myPosts.map(p => {
+              const boardName = p.board_type === 'benefits' ? '슬병혜택' : '커뮤니티'
+              return (
+                <div key={p.id} onClick={() => router.push(p.board_type === 'benefits' ? '/benefits' : '/board')} style={{
+                  padding: '16px', borderRadius: '16px', background: '#fff',
+                  border: '1px solid #f1f5f9', cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 800, color: accentColor, background: `${accentColor}15`, padding: '4px 8px', borderRadius: '6px' }}>{boardName}</span>
+                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>{p.category}</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: 'auto' }}>{formatDate(new Date(p.created_at))}</span>
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.title}</div>
+                  {p.body && (
+                    <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {p.body}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#64748b' }}>
+                    <span>❤️ {p.likes_count}</span>
+                    <span>💬 {p.comments_count}</span>
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 
       {activeTab === 'bookmarks' && (
-        <div style={{ background: '#fff', borderRadius: '16px', padding: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
           <h3 style={{ margin: '0 0 8px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>❤️ 찜한 글</h3>
           {bookmarkedPosts.length === 0 ? (
-            <div style={{ color: '#9ca3af', fontSize: '13px', textAlign: 'center', padding: '40px 0' }}>찜한 게시글이 없습니다.</div>
-          ) : bookmarkedPosts.map(p => (
-            <div key={p.id} onClick={() => router.push(`/${p.board_type || 'benefits'}`)} style={{ padding: '16px', border: '1px solid #f1f5f9', borderRadius: '14px', cursor: 'pointer', background: '#f8fafc' }}>
-               <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '8px' }}>{p.title}</div>
-               <div style={{ fontSize: '12px', color: '#64748b', display: 'flex', gap: '12px', alignItems: 'center' }}>
-                 <span style={{ fontWeight: 600, color: accentColor }}>{p.category || '일반'}</span>
-                 <span>👍 {p.likes_count || 0}</span>
-                 <span>💬 {p.comments_count || 0}</span>
-               </div>
-            </div>
-          ))}
+            <div style={{ textAlign: 'center', padding: '30px', color: '#9ca3af', fontSize: '13px', background: '#fff', borderRadius: '16px' }}>찜한 게시글이 없습니다.</div>
+          ) : (
+            bookmarkedPosts.map((p: any) => {
+              const boardName = p.board_type === 'benefits' ? '슬병혜택' : '커뮤니티'
+              return (
+                <div key={p.id} onClick={() => router.push(p.board_type === 'benefits' ? '/benefits' : '/board')} style={{
+                  padding: '16px', borderRadius: '16px', background: '#fff',
+                  border: '1px solid #f1f5f9', cursor: 'pointer',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 800, color: accentColor, background: `${accentColor}15`, padding: '4px 8px', borderRadius: '6px' }}>{boardName}</span>
+                    <span style={{ fontSize: '11px', color: '#64748b', fontWeight: 600 }}>{p.category}</span>
+                    <span style={{ fontSize: '10px', color: '#9ca3af', marginLeft: 'auto' }}>{formatDate(new Date(p.created_at))}</span>
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.title}</div>
+                  {p.body && (
+                    <div style={{ fontSize: '12px', color: '#64748b', marginBottom: '10px', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {p.body}
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '12px', fontSize: '11px', color: '#64748b' }}>
+                    <span>❤️ {p.likes_count}</span>
+                    <span>💬 {p.comments_count}</span>
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 

@@ -56,6 +56,13 @@ export default function MilitaryBoardPage() {
   const [newCategory, setNewCategory] = useState('자유')
   const [newImage, setNewImage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  
+  // Edit State
+  const [editingPostId, setEditingPostId] = useState<string | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editBody, setEditBody] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Comment Input State
@@ -215,6 +222,25 @@ export default function MilitaryBoardPage() {
     }
   }
 
+  const handleEditSave = async (id: string) => {
+    if (!editTitle.trim() || !editBody.trim()) {
+      alert('제목과 내용을 입력해주세요.')
+      return
+    }
+    const supabase = createClient()
+    const { error } = await supabase
+      .from('posts')
+      .update({ title: editTitle, body: editBody, category: editCategory })
+      .eq('id', id)
+      
+    if (!error) {
+      setPosts(prev => prev.map(p => p.id === id ? { ...p, title: editTitle, body: editBody, category: editCategory } : p))
+      setEditingPostId(null)
+    } else {
+      alert('수정 중 오류가 발생했습니다.')
+    }
+  }
+
   const handleShare = async (post: Post) => {
     const shareData = {
       title: post.title,
@@ -321,6 +347,7 @@ export default function MilitaryBoardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {filtered.map(p => {
             const authorName = p.profiles?.nickname || p.profiles?.display_name || '익명'
+            const isAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자';
             return (
               <article key={p.id} style={{
                 background: '#fff', borderRadius: '16px', border: '1px solid #f1f5f9',
@@ -346,19 +373,60 @@ export default function MilitaryBoardPage() {
                       color: categoryColors[p.category] || '#6b7280',
                     }}>{p.category}</span>
                   )}
-                  {(user?.id === p.user_id || profile?.nickname === '관리자' || profile?.display_name === '관리자' || p.profiles?.nickname === '관리자') && (
-                    <button onClick={() => handleDeletePost(p.id)} style={{
-                      marginLeft: '8px', border: 'none', background: 'none', fontSize: '11px',
-                      color: '#ef4444', cursor: 'pointer', padding: '4px'
-                    }}>삭제</button>
-                  )}
+                  
+                  <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
+                    {(user?.id === p.user_id || isAdmin) && (
+                      <button onClick={() => {
+                        setEditingPostId(p.id)
+                        setEditTitle(p.title)
+                        setEditBody(p.body)
+                        setEditCategory(p.category || '자유')
+                      }} style={{
+                        border: '1px solid #e2e8f0', background: '#fff', fontSize: '11px',
+                        color: '#64748b', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px'
+                      }}>수정</button>
+                    )}
+                    {(user?.id === p.user_id || isAdmin || p.profiles?.nickname === '관리자') && (
+                      <button onClick={() => handleDeletePost(p.id)} style={{
+                        border: 'none', background: '#fee2e2', fontSize: '11px',
+                        color: '#ef4444', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px'
+                      }}>삭제</button>
+                    )}
+                  </div>
                 </div>
 
                 {/* 본문 */}
-                <div style={{ padding: '4px 16px 12px' }}>
-                  <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{p.title}</h3>
-                  <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{p.body}</p>
-                </div>
+                {editingPostId === p.id ? (
+                  <div style={{ padding: '4px 16px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <select 
+                        value={editCategory} 
+                        onChange={e => setEditCategory(e.target.value)}
+                        style={{ padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px' }}
+                      >
+                        {CATEGORIES.filter(c => c !== '전체' && (c !== '공지사항' || isAdmin)).map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                      <input 
+                        type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
+                        style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px' }}
+                      />
+                    </div>
+                    <textarea 
+                      value={editBody} 
+                      onChange={e => setEditBody(e.target.value)}
+                      style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', resize: 'vertical', minHeight: '100px' }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+                      <button onClick={() => setEditingPostId(null)} style={{ padding: '6px 12px', border: 'none', background: '#f1f5f9', color: '#64748b', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>취소</button>
+                      <button onClick={() => handleEditSave(p.id)} style={{ padding: '6px 12px', border: 'none', background: '#10b981', color: '#fff', borderRadius: '8px', fontSize: '12px', cursor: 'pointer' }}>저장</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: '4px 16px 12px' }}>
+                    <h3 style={{ margin: '0 0 6px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>{p.title}</h3>
+                    <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{p.body}</p>
+                  </div>
+                )}
 
                 {/* 첨부 이미지 (가장 아래 배치) */}
                 {p.image_url && (

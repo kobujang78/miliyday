@@ -31,10 +31,9 @@ interface Post {
   commentsList?: Comment[]
 }
 
-const CATEGORIES = ['전체', 'PX핫템', '할인정보', '행사안내', '프로모션', '병영혜택']
+const CATEGORIES = ['전체', 'PX핫템', '병영혜택', '할인정보', '행사안내', '프로모션']
 
 const categoryColors: Record<string, string> = {
-  '공지사항': '#ef4444',
   'PX핫템': '#f59e0b',
   '할인정보': '#0b6efd',
   '행사안내': '#10b981',
@@ -311,7 +310,7 @@ export default function BenefitsPage() {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', paddingBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>🎁 슬병혜택</h2>
+        <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>🎁 슬병혜택</h2>
         <button onClick={() => {
           setNewCategory(activeCategory === '전체' ? 'PX핫템' : activeCategory);
           setShowModal(true);

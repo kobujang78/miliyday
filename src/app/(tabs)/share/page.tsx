@@ -205,8 +205,8 @@ export default function SharePage() {
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto' }}>
-      <h2 style={{ margin: '0 0 16px', fontSize: '20px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <span>📸</span> 생활공유
+      <h2 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 800, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <span style={{ fontSize: '16px' }}>📸</span> 생활공유
       </h2>
 
       {loading ? (

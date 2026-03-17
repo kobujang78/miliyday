@@ -31,14 +31,14 @@ interface Post {
   commentsList?: Comment[]
 }
 
-const CATEGORIES = ['전체', '공지사항', '자유', '질문', '꿀팁', '군사특기', '고민상담']
+const CATEGORIES = ['전체', '공지사항', '자유', '질문', '꿀팁', '부대자랑', '고민상담']
 
 const categoryColors: Record<string, string> = {
   '공지사항': '#ef4444',
   '자유': '#3b82f6',
   '질문': '#10b981',
   '꿀팁': '#f59e0b',
-  '군사특기': '#8b5cf6',
+  '부대자랑': '#8b5cf6',
   '고민상담': '#ef4444',
 }
 
@@ -312,7 +312,7 @@ export default function MilitaryBoardPage() {
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', paddingBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>👥 커뮤니티</h2>
+        <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#0f172a' }}>👥 커뮤니티</h2>
         <button onClick={() => {
           setNewCategory(activeCategory === '전체' ? '자유' : activeCategory);
           setShowModal(true);

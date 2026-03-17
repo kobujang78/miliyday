@@ -43,7 +43,7 @@ const categoryColors: Record<string, string> = {
 }
 
 export default function BenefitsPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState('전체')
@@ -53,7 +53,7 @@ export default function BenefitsPage() {
   const [showModal, setShowModal] = useState(false)
   const [newTitle, setNewTitle] = useState('')
   const [newBody, setNewBody] = useState('')
-  const [newCategory, setNewCategory] = useState('공지사항')
+  const [newCategory, setNewCategory] = useState('PX핫템')
   const [newImage, setNewImage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -288,7 +288,7 @@ export default function BenefitsPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
         <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a' }}>🎁 슬병혜택</h2>
         <button onClick={() => {
-          setNewCategory(activeCategory === '전체' ? '공지사항' : activeCategory);
+          setNewCategory(activeCategory === '전체' ? 'PX핫템' : activeCategory);
           setShowModal(true);
         }} style={{
           padding: '8px 16px', borderRadius: '20px', border: 'none',
@@ -346,7 +346,7 @@ export default function BenefitsPage() {
                       color: categoryColors[p.category] || '#6b7280',
                     }}>{p.category}</span>
                   )}
-                  {(user?.id === p.user_id || user?.user_metadata?.nickname === '관리자' || user?.user_metadata?.display_name === '관리자' || p.profiles?.nickname === '관리자') && (
+                  {(user?.id === p.user_id || profile?.nickname === '관리자' || profile?.display_name === '관리자' || p.profiles?.nickname === '관리자') && (
                     <button onClick={() => handleDeletePost(p.id)} style={{
                       marginLeft: '8px', border: 'none', background: 'none', fontSize: '11px',
                       color: '#ef4444', cursor: 'pointer', padding: '4px'

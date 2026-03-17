@@ -43,7 +43,7 @@ const categoryColors: Record<string, string> = {
 }
 
 export default function MilitaryBoardPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState('전체')
@@ -346,7 +346,7 @@ export default function MilitaryBoardPage() {
                       color: categoryColors[p.category] || '#6b7280',
                     }}>{p.category}</span>
                   )}
-                  {(user?.id === p.user_id || user?.user_metadata?.nickname === '관리자' || user?.user_metadata?.display_name === '관리자' || p.profiles?.nickname === '관리자') && (
+                  {(user?.id === p.user_id || profile?.nickname === '관리자' || profile?.display_name === '관리자' || p.profiles?.nickname === '관리자') && (
                     <button onClick={() => handleDeletePost(p.id)} style={{
                       marginLeft: '8px', border: 'none', background: 'none', fontSize: '11px',
                       color: '#ef4444', cursor: 'pointer', padding: '4px'
@@ -466,7 +466,7 @@ export default function MilitaryBoardPage() {
               {CATEGORIES.filter(c => c !== '전체').map(c => {
                  // 공지사항은 관리자만 선택 가능하도록 처리
                  if (c === '공지사항') {
-                   const isAuthAdmin = user?.user_metadata?.nickname === '관리자' || user?.user_metadata?.display_name === '관리자';
+                   const isAuthAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자';
                    if (!isAuthAdmin) return null;
                  }
                  return <option key={c} value={c}>{c}</option>

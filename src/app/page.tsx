@@ -42,7 +42,7 @@ export default function Home() {
       const { data } = await supabase
         .from('posts')
         .select('id, title, body, created_at')
-        .eq('board_type', 'benefits')
+        .eq('board_type', 'military_board')
         .eq('category', '공지사항')
         .order('created_at', { ascending: false })
       

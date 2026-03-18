@@ -289,7 +289,7 @@ export default function OnboardingPage() {
                             </button>
 
                             {/* Kakao */}
-                            <button onClick={() => signInWithOAuth('kakao')} style={{
+                            <button onClick={() => alert('준비 중입니다.')} style={{
                                 width: '100%', padding: '13px', borderRadius: '12px',
                                 border: 'none', background: '#FEE500',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
@@ -303,7 +303,7 @@ export default function OnboardingPage() {
                             </button>
 
                             {/* Apple */}
-                            <button onClick={() => signInWithOAuth('apple')} style={{
+                            <button onClick={() => alert('준비 중입니다.')} style={{
                                 width: '100%', padding: '13px', borderRadius: '12px',
                                 border: 'none', background: '#000',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
@@ -317,7 +317,7 @@ export default function OnboardingPage() {
                             </button>
 
                             {/* GitHub */}
-                            <button onClick={() => signInWithOAuth('github')} style={{
+                            <button onClick={() => alert('준비 중입니다.')} style={{
                                 width: '100%', padding: '13px', borderRadius: '12px',
                                 border: '1px solid #d1d5db', background: '#fff',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',

@@ -43,7 +43,7 @@ export default function OnboardingPage() {
                     if (!nickname) setNickname(fallbackName)
                 }
             }
-        }, 3000)
+        }, 1500)
         return () => clearTimeout(timer)
     }, [user, isGuest, profile, router])
 

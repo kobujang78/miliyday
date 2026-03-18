@@ -19,12 +19,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         if (loading) return
         if (isOnboarding || isCallback) { setChecked(true); return }
         
-        const onboarded = localStorage.getItem('mili_onboarded')
-        
-        // If real user is logged in but hasn't agreed to privacy policy, they are NOT fully onboarded
+        const isLoggedIn = !!user || isGuest
         const isFullyOnboarded = isGuest || (user && profile?.privacy_policy_agreed)
         
-        if (!isFullyOnboarded && !onboarded) {
+        if (!isLoggedIn || !isFullyOnboarded) {
             router.replace('/onboarding')
             return
         }

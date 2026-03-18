@@ -35,7 +35,15 @@ export default function OnboardingPage() {
             } else if (profile?.privacy_policy_agreed && !isGuest) {
                 router.replace('/')
             } else {
-                setStep('userType')
+                // Determine next step after splash
+                if (profile?.user_type) {
+                    setUserType(profile.user_type as any)
+                    if (profile.relationship) setRelationship(profile.relationship)
+                    setStep('profile')
+                } else {
+                    setStep('userType')
+                }
+                
                 // Pre-fill from Google/Social if available
                 if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
                     const fallbackName = user.user_metadata.full_name || user.user_metadata.name
@@ -61,8 +69,13 @@ export default function OnboardingPage() {
                 router.replace('/')
                 return
             }
-            // Only set to userType if we are not already in profile step
-            if (step !== 'profile') {
+            
+            // Sync step and user data
+            if (profile?.user_type && step === 'userType') {
+                setUserType(profile.user_type as any)
+                if (profile.relationship) setRelationship(profile.relationship)
+                setStep('profile')
+            } else if (step === 'login') {
                 setStep('userType')
             }
             // Pre-fill from Google/Social if available

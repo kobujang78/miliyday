@@ -22,6 +22,7 @@ export const DEFAULT_REGULAR_DAYS: Record<Branch, number> = {
   navy: 24,
   airforce: 24,
   marines: 24,
+  katusa: 24,
 }
 
 /**
@@ -32,6 +33,7 @@ export const MAX_REWARD_DAYS: Record<Branch, number> = {
   navy: 17,
   airforce: 18,
   marines: 16,
+  katusa: 16,
 }
 
 export interface VacationRecord {

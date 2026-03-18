@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useMemo, useState } from 'react';
 
-type Branch = 'army' | 'navy' | 'airforce' | 'marines';
+type Branch = 'army' | 'navy' | 'airforce' | 'marines' | 'katusa';
 
 interface Props {
   enlistmentDate?: string; // YYYY-MM-DD (optional initially)
@@ -17,6 +17,7 @@ const branchMap: Record<
   navy: { months: 20, label: '해군', color: 'var(--accent-navy)', accent: 'var(--accent-navy)' },
   airforce: { months: 21, label: '공군', color: 'var(--accent-airforce)', accent: 'var(--accent-airforce)' },
   marines: { months: 18, label: '해병대', color: 'var(--accent-marines)', accent: 'var(--accent-marines)' },
+  katusa: { months: 18, label: '카투사', color: '#967117', accent: '#c2b280' },
 };
 
 function parseDateYMD(input: string): Date {
@@ -145,6 +146,7 @@ export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch 
               <option value="navy">해군</option>
               <option value="airforce">공군</option>
               <option value="marines">해병대</option>
+              <option value="katusa">카투사</option>
             </select>
           </div>
 

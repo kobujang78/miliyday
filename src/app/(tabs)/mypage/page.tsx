@@ -363,7 +363,7 @@ export default function MyPage() {
 
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>병종</label>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
                   {BRANCHES.map(b => (
                     <button 
                       key={b.value}

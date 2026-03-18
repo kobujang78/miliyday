@@ -410,7 +410,7 @@ export default function OnboardingPage() {
 
                         {/* 군 선택 */}
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>소속</label>
-                        <div style={{ display: 'flex', gap: '6px', marginBottom: '16px' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '16px' }}>
                             {BRANCHES.map(b => (
                                 <button key={b.value} onClick={() => setBranch(b.value)} style={{
                                     flex: 1, padding: '8px 0', border: `2px solid ${branch === b.value ? b.color : '#e5e7eb'}`,

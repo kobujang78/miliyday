@@ -52,7 +52,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     if (isOnboarding || isCallback) return <>{children}</>
 
     const branchColor = headerProfile ? ({
-        army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b'
+        army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b', katusa: '#967117'
     }[headerProfile.branch]) : '#0f172a'
 
     return (

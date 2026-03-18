@@ -188,9 +188,9 @@ export default function Home() {
                 pointerEvents: i === activeNoticeIndex ? 'auto' : 'none',
               }}
             >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{n.title}</span>
-                <span style={{ fontSize: '10px', color: '#9ca3af' }}>{n.date}</span>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px' }}>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: '#0f172a' }}>{n.title}.</span>
+                <span style={{ fontSize: '11px', color: '#9ca3af' }}>({n.date.split('T')[0]})</span>
               </div>
               <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b', lineHeight: 1.4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                 {n.body}

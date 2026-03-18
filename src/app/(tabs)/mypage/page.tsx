@@ -14,10 +14,12 @@ import { useAuth } from '@/components/AuthProvider'
 
 export default function MyPage() {
   const router = useRouter()
-  const { user, profile, signOut, updateProfile } = useAuth()
-
   const [showRankEdit, setShowRankEdit] = useState(false)
   const [showInfoEdit, setShowInfoEdit] = useState(false)
+  const [showWithdrawalModal, setShowWithdrawalModal] = useState(false)
+  const [withdrawalStep, setWithdrawalStep] = useState(1)
+  const [withdrawalReason, setWithdrawalReason] = useState('')
+  const { user, profile, signOut, updateProfile, deleteAccount, isGuest } = useAuth()
   const [myPoints, setMyPoints] = useState(0)
   const [myInviteCode, setMyInviteCode] = useState('')
   const [inviteCount, setInviteCount] = useState(0)
@@ -151,6 +153,32 @@ export default function MyPage() {
       }
     } catch { }
   }, [])
+
+  const handleWithdrawal = async () => {
+    if (isGuest) {
+      // For guests, just sign out and clear etc.
+      await signOut()
+      router.replace('/onboarding')
+      return
+    }
+    
+    try {
+      await deleteAccount()
+      alert('탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.')
+      router.replace('/onboarding')
+    } catch (e) {
+      alert('탈퇴 처리 중 오류가 발생했습니다.')
+    }
+  }
+
+  const withdrawalReasons = [
+    '앱이 기대했던 것과 달라요',
+    '원하는 혜택이나 정보가 부족해요',
+    '사용 방법이 너무 어렵고 불편해요',
+    '알림이 너무 자주 와서 부담스러워요',
+    '전역 등으로 인해 더 이상 필요하지 않아요',
+    '기타'
+  ]
 
   const handleRankOverride = (newRank: number | null) => {
     setRankOverrideLocal(newRank)
@@ -695,6 +723,113 @@ export default function MyPage() {
       >
         <span>🚪</span> 로그아웃
       </button>
+
+      {!isGuest && (
+        <div style={{ textAlign: 'center', marginTop: '20px', paddingBottom: '40px' }}>
+          <button 
+            onClick={() => {
+              setWithdrawalStep(1)
+              setWithdrawalReason('')
+              setShowWithdrawalModal(true)
+            }}
+            style={{ 
+              background: 'none', border: 'none', color: '#94a3b8', 
+              fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' 
+            }}
+          >
+            탈퇴하려면 여기를 눌러주세요.
+          </button>
+        </div>
+      )}
+
+      {/* ── 탈퇴 모달 ── */}
+      {showWithdrawalModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          padding: '24px',
+        }} onClick={() => setShowWithdrawalModal(false)}>
+          <div style={{
+            background: '#fff', borderRadius: '24px', padding: '24px',
+            width: '100%', maxWidth: '360px', position: 'relative'
+          }} onClick={e => e.stopPropagation()}>
+            {withdrawalStep === 1 ? (
+              <>
+                <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 800 }}>Mili Connect를 떠나시나요?</h3>
+                <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
+                  탈퇴하시려는 이유를 알려주시면<br/>더 나은 서비스를 만드는 데 참고하겠습니다.
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {withdrawalReasons.map(r => (
+                    <button 
+                      key={r}
+                      onClick={() => setWithdrawalReason(r)}
+                      style={{
+                        padding: '12px 16px', borderRadius: '12px', textAlign: 'left',
+                        fontSize: '13px', fontWeight: 600, border: '1.5px solid',
+                        borderColor: withdrawalReason === r ? accentColor : '#f1f5f9',
+                        background: withdrawalReason === r ? `${accentColor}10` : '#fff',
+                        color: withdrawalReason === r ? accentColor : '#475569',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  disabled={!withdrawalReason}
+                  onClick={() => setWithdrawalStep(2)}
+                  style={{
+                    marginTop: '24px', width: '100%', padding: '14px', borderRadius: '14px',
+                    border: 'none', background: withdrawalReason ? accentColor : '#e2e8f0',
+                    color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer'
+                  }}
+                >
+                  다음으로
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                  <span style={{ fontSize: '40px' }}>⚠️</span>
+                </div>
+                <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 800, textAlign: 'center' }}>잠깐! 다시 한번 확인해 주세요</h3>
+                <div style={{
+                  background: '#fff1f2', borderRadius: '16px', padding: '16px',
+                  marginBottom: '20px', border: '1px solid #fee2e2'
+                }}>
+                  <p style={{ margin: 0, fontSize: '13px', color: '#e11d48', fontWeight: 700, lineHeight: 1.6, textAlign: 'center' }}>
+                    탈퇴 시 현재 보유 중인 모든<br/>
+                    <span style={{ fontSize: '15px' }}>밀리포인트({profile?.points?.toLocaleString()}P)</span>가<br/>
+                    즉시 소멸되며 복구가 불가능합니다.
+                  </p>
+                </div>
+                <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#64748b', textAlign: 'center', lineHeight: 1.5 }}>
+                  작성하신 게시물과 댓글은 삭제되지 않으며,<br/>계정 정보는 모두 영구 삭제됩니다.<br/>
+                  정말로 탈퇴하시겠습니까?
+                </p>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button 
+                    onClick={() => setShowWithdrawalModal(false)}
+                    style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#f1f5f9', color: '#64748b', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    취소
+                  </button>
+                  <button 
+                    onClick={handleWithdrawal}
+                    style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#ef4444', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    탈퇴하기
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+

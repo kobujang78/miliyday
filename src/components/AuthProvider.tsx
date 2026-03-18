@@ -13,6 +13,7 @@ export interface MiliProfile {
     nickname: string | null
     avatar_url: string | null
     nickname_updated_at: string | null
+    points: number
 }
 
 interface AuthContextType {
@@ -25,6 +26,7 @@ interface AuthContextType {
     signInWithEmail: (email: string, password: string) => Promise<{ error: any }>
     signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>
     signOut: () => Promise<void>
+    deleteAccount: () => Promise<void>
     setGuestMode: () => void
     refreshProfile: () => Promise<void>
     updateProfile: (updates: Partial<MiliProfile> | { rankOverride: number | null }) => void
@@ -37,6 +39,7 @@ const AuthContext = createContext<AuthContextType>({
     signInWithEmail: async () => ({ error: 'Not implemented' }),
     signUpWithEmail: async () => ({ error: 'Not implemented' }),
     signOut: async () => { },
+    deleteAccount: async () => { },
     setGuestMode: () => { }, refreshProfile: async () => { },
     updateProfile: () => { },
 })
@@ -54,7 +57,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const fetchProfile = useCallback(async (userId: string) => {
         const { data } = await supabase
             .from('profiles')
-            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at')
+            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points')
             .eq('id', userId)
             .single()
         if (data) setProfile(data as MiliProfile)
@@ -81,7 +84,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                             id: 'guest', email: '', display_name: p.name || null,
                             branch: p.branch || 'army', rank_level: p.rank || 1,
                             enlist_date: p.enlistDate || null, nickname: p.name || null,
-                            avatar_url: null, nickname_updated_at: null,
+                            avatar_url: null, nickname_updated_at: null, points: 0,
                         })
                     }
                 } catch { }
@@ -161,6 +164,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         setProfile(null)
         setIsGuest(false)
     }
+    
+    const deleteAccount = async () => {
+        if (user) {
+            // Delete public.profiles record.
+            // Many foreign keys are set to public.profiles.id, so this should trigger cascading
+            // or at least remove the user's presence from the app's tables.
+            const { error } = await supabase.from('profiles').delete().eq('id', user.id)
+            if (error) {
+                console.error('Account deletion error:', error)
+                throw error
+            }
+        }
+        await signOut()
+    }
 
     const setGuestMode = () => {
         localStorage.setItem('mili_guest', 'true')
@@ -193,7 +210,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     return (
         <AuthContext.Provider value={{
             user, profile, loading, isGuest,
-            signInWithGoogle, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, setGuestMode, refreshProfile,
+            signInWithGoogle, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, deleteAccount, setGuestMode, refreshProfile,
             updateProfile,
         }}>
             {children}

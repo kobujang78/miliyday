@@ -61,7 +61,10 @@ export default function OnboardingPage() {
                 router.replace('/')
                 return
             }
-            setStep('userType')
+            // Only set to userType if we are not already in profile step
+            if (step !== 'profile') {
+                setStep('userType')
+            }
             // Pre-fill from Google/Social if available
             if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
                 const fallbackName = user.user_metadata.full_name || user.user_metadata.name

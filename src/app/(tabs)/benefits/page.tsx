@@ -13,7 +13,7 @@ interface Comment {
   profiles?: any
 }
 
-interface Post { 
+interface Post {
   id: string
   title: string
   body: string
@@ -78,7 +78,7 @@ export default function BenefitsPage() {
     if (!error && postsData) {
       let likesData: any[] = []
       let bookmarksData: any[] = []
-      
+
       if (user?.id) {
         const [{ data: l }, { data: b }] = await Promise.all([
           supabase.from('post_likes').select('post_id').eq('user_id', user.id),
@@ -151,7 +151,7 @@ export default function BenefitsPage() {
   const handleCreatePost = async () => {
     if (!newTitle.trim() || !newBody.trim()) { alert('제목과 내용을 입력해주세요.'); return }
     if (!user) { alert('로그인이 필요합니다.'); return }
-    
+
     setIsSubmitting(true)
     const supabase = createClient()
     const { data, error } = await supabase
@@ -186,9 +186,9 @@ export default function BenefitsPage() {
     if (!user) return
     const isLiked = post.isLiked
     const newLikes = isLiked ? Math.max(0, post.likes_count - 1) : post.likes_count + 1
-    
+
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isLiked: !isLiked, likes_count: newLikes } : p))
-    
+
     const supabase = createClient()
     if (isLiked) {
       await supabase.from('post_likes').delete().match({ post_id: post.id, user_id: user.id })
@@ -202,7 +202,7 @@ export default function BenefitsPage() {
     if (!user) return
     const isBookmarked = post.isBookmarked
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isBookmarked: !isBookmarked } : p))
-    
+
     const supabase = createClient()
     if (isBookmarked) {
       await supabase.from('post_bookmarks').delete().match({ post_id: post.id, user_id: user.id })
@@ -230,7 +230,7 @@ export default function BenefitsPage() {
       .from('posts')
       .update({ title: editTitle, body: editBody, category: editCategory })
       .eq('id', id)
-      
+
     if (!error) {
       setPosts(prev => prev.map(p => p.id === id ? { ...p, title: editTitle, body: editBody, category: editCategory } : p))
       setEditingPostId(null)
@@ -262,7 +262,7 @@ export default function BenefitsPage() {
         .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
         .eq('post_id', post.id)
         .order('created_at', { ascending: true })
-      
+
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, showComments: true, commentsList: data || [] } : p))
     } else {
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, showComments: false } : p))
@@ -396,20 +396,20 @@ export default function BenefitsPage() {
                 {editingPostId === p.id ? (
                   <div style={{ padding: '4px 16px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <select 
-                        value={editCategory} 
+                      <select
+                        value={editCategory}
                         onChange={e => setEditCategory(e.target.value)}
                         style={{ padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px' }}
                       >
                         {CATEGORIES.filter(c => c !== '전체').map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <input 
+                      <input
                         type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
                         style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px' }}
                       />
                     </div>
-                    <textarea 
-                      value={editBody} 
+                    <textarea
+                      value={editBody}
                       onChange={e => setEditBody(e.target.value)}
                       style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', resize: 'vertical', minHeight: '100px' }}
                     />
@@ -489,11 +489,11 @@ export default function BenefitsPage() {
                       </div>
                     ))}
                     <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                      <input 
-                        type="text" placeholder="댓글을 남겨보세요..." 
+                      <input
+                        type="text" placeholder="댓글을 남겨보세요..."
                         value={commentInput[p.id] || ''}
                         onChange={(e) => setCommentInput(prev => ({ ...prev, [p.id]: e.target.value }))}
-                        onKeyDown={(e) => { if(e.key === 'Enter') submitComment(p) }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') submitComment(p) }}
                         style={{
                           flex: 1, padding: '8px 12px', borderRadius: '16px', border: '1px solid #e2e8f0',
                           fontSize: '13px', outline: 'none'
@@ -515,7 +515,7 @@ export default function BenefitsPage() {
       {/* 작성 모달 */}
       {showModal && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', 
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
           zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
         }}>
           <div style={{
@@ -523,7 +523,7 @@ export default function BenefitsPage() {
             padding: '24px', paddingBottom: '32px'
           }}>
             <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>새 혜택 정보 공유</h3>
-            
+
             <select value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{
               width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',
               marginBottom: '12px', fontSize: '14px', outline: 'none', background: '#fafbff'
@@ -531,15 +531,15 @@ export default function BenefitsPage() {
               {CATEGORIES.filter(c => c !== '전체').map(c => <option key={c} value={c}>{c}</option>)}
             </select>
 
-            <input 
+            <input
               type="text" placeholder="제목을 입력하세요" value={newTitle} onChange={e => setNewTitle(e.target.value)}
               style={{
                 width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',
                 marginBottom: '12px', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
               }}
             />
-            
-            <textarea 
+
+            <textarea
               placeholder="내용을 자세히 작성해주세요" value={newBody} onChange={e => setNewBody(e.target.value)}
               style={{
                 width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',

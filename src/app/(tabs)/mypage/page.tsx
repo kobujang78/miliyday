@@ -20,7 +20,8 @@ export default function MyPage() {
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false)
   const [withdrawalStep, setWithdrawalStep] = useState(1)
   const [withdrawalReason, setWithdrawalReason] = useState('')
-  const { user, profile, signOut, updateProfile, deleteAccount, isGuest } = useAuth()
+  const { user, profile, signOut, updateProfile, deleteAccount, isGuest, connectedSoldier } = useAuth()
+  const isSoldier = profile?.user_type === 'soldier'
   const [myPoints, setMyPoints] = useState(0)
   const [myInviteCode, setMyInviteCode] = useState('')
   const [inviteCount, setInviteCount] = useState(0)
@@ -81,13 +82,19 @@ export default function MyPage() {
   const handleSaveInfo = async () => {
     const updates: Record<string, any> = {
       display_name: editName,
-      branch: editBranch,
-      enlist_date: editEnlistDate,
+    }
+    if (isSoldier) {
+      updates.branch = editBranch
+      updates.enlist_date = editEnlistDate
     }
     // 닉네임 변경 체크 (30일 제한)
     if (editNickname !== nickname) {
       if (!canEditNickname) {
         alert(`닉네임은 ${daysUntilNicknameEdit}일 후에 변경할 수 있습니다.`)
+        return
+      }
+      if (editNickname.trim() === '관리자') {
+        alert('"관리자" 닉네임은 사용할 수 없습니다.')
         return
       }
       updates.nickname = editNickname.trim() || editName
@@ -99,8 +106,8 @@ export default function MyPage() {
       const supabase = createClient()
       await supabase.from('profiles').update(updates).eq('id', user.id)
       // refresh to get new data
-      const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at').eq('id', user.id).single()
-      if (data) updateProfile(data)
+      const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, connected_soldier_id').eq('id', user.id).single()
+      if (data) updateProfile(data as any)
     }
     setShowInfoEdit(false)
   }
@@ -136,8 +143,8 @@ export default function MyPage() {
       await supabase.from('profiles').update({ avatar_url: compressed }).eq('id', user.id)
       updateProfile({ avatar_url: compressed } as any)
       // Trigger re-fetch
-      const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at').eq('id', user.id).single()
-      if (data) updateProfile(data)
+      const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, connected_soldier_id').eq('id', user.id).single()
+      if (data) updateProfile(data as any)
     } catch {
       alert('사진 업로드에 실패했습니다.')
     }
@@ -163,7 +170,7 @@ export default function MyPage() {
       router.replace('/onboarding')
       return
     }
-    
+
     try {
       await deleteAccount()
       alert('탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.')
@@ -269,16 +276,16 @@ export default function MyPage() {
 
   const handleMarketingToggle = async (agreed: boolean) => {
     if (!user) return
-    const updates = { 
-        marketing_agreed: agreed,
-        marketing_agreed_at: agreed ? new Date().toISOString() : null
+    const updates = {
+      marketing_agreed: agreed,
+      marketing_agreed_at: agreed ? new Date().toISOString() : null
     }
     const supabase = createClient()
     const { error } = await supabase.from('profiles').update(updates).eq('id', user.id)
     if (!error) {
-        updateProfile(updates)
+      updateProfile(updates)
     } else {
-        alert('설정 변경에 실패했습니다.')
+      alert('설정 변경에 실패했습니다.')
     }
   }
 
@@ -292,7 +299,7 @@ export default function MyPage() {
         position: 'relative',
       }}>
         {/* 정보 수정 버튼 */}
-        <button 
+        <button
           onClick={() => setShowInfoEdit(true)}
           style={{
             position: 'absolute', top: '16px', right: '16px',
@@ -337,31 +344,59 @@ export default function MyPage() {
               <div style={{ fontSize: '11px', opacity: 0.7 }}>{name}</div>
             )}
             <div style={{ fontSize: '13px', opacity: 0.85, marginTop: '2px' }}>
-              {currentBranch.label} · {currentRank.label}
+              {isSoldier ? `${currentBranch.label} · ${currentRank.label}` : (profile?.relationship || '지인')}
             </div>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-          <div style={{
-            padding: '10px 12px', borderRadius: '12px',
-            background: 'rgba(255,255,255,0.15)',
-          }}>
-            <div style={{ fontSize: '10px', opacity: 0.7 }}>입대일</div>
-            <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '2px' }}>
-              {enlistDate || '미입력'}
+        {isSoldier ? (
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+            <div style={{
+              padding: '10px 12px', borderRadius: '12px',
+              background: 'rgba(255,255,255,0.15)',
+            }}>
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>입대일</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '2px' }}>
+                {enlistDate || '미입력'}
+              </div>
+            </div>
+            <div style={{
+              padding: '10px 12px', borderRadius: '12px',
+              background: 'rgba(255,255,255,0.15)',
+            }}>
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>복무기간</div>
+              <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '2px' }}>
+                {SERVICE_MONTHS[branch]}개월
+              </div>
             </div>
           </div>
+        ) : connectedSoldier ? (
           <div style={{
-            padding: '10px 12px', borderRadius: '12px',
+            padding: '12px', borderRadius: '12px',
             background: 'rgba(255,255,255,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between'
           }}>
-            <div style={{ fontSize: '10px', opacity: 0.7 }}>복무기간</div>
-            <div style={{ fontSize: '14px', fontWeight: 700, marginTop: '2px' }}>
-              {SERVICE_MONTHS[branch]}개월
+            <div>
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>연동된 용사</div>
+              <div style={{ fontSize: '14px', fontWeight: 700 }}>
+                {connectedSoldier.nickname || connectedSoldier.display_name}
+              </div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <div style={{ fontSize: '10px', opacity: 0.7 }}>군종/계급</div>
+              <div style={{ fontSize: '12px', fontWeight: 700 }}>
+                {BRANCHES.find(b => b.value === connectedSoldier.branch)?.label} · {RANK_LABELS[connectedSoldier.rank_level as RankLevel]}
+              </div>
             </div>
           </div>
-        </div>
+        ) : (
+          <div style={{
+            padding: '10px', borderRadius: '12px',
+            background: 'rgba(255,255,255,0.1)', fontSize: '12px', textAlign: 'center'
+          }}>
+            연동된 용사가 없습니다. 초대코드로 등록하세요.
+          </div>
+        )}
       </div>
 
       {/* ── 내 정보 수정 모달 ── */}
@@ -376,11 +411,11 @@ export default function MyPage() {
             padding: '24px', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)',
           }}>
             <h3 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: 800, color: '#0f172a' }}>내 정보 수정</h3>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
               <div>
                 <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>이름</label>
-                <input 
+                <input
                   type="text" value={editName} onChange={e => setEditName(e.target.value)}
                   style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none' }}
                 />
@@ -391,7 +426,7 @@ export default function MyPage() {
                   닉네임
                   {!canEditNickname && <span style={{ fontSize: '10px', color: '#ef4444', fontWeight: 600 }}>({daysUntilNicknameEdit}일 후 변경 가능)</span>}
                 </label>
-                <input 
+                <input
                   type="text" value={editNickname}
                   onChange={e => canEditNickname && setEditNickname(e.target.value)}
                   disabled={!canEditNickname}
@@ -406,44 +441,48 @@ export default function MyPage() {
                 <div style={{ fontSize: '10px', color: '#9ca3af', marginTop: '4px' }}>닉네임은 30일에 1번만 변경할 수 있습니다</div>
               </div>
 
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>병종</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                  {BRANCHES.map(b => (
-                    <button 
-                      key={b.value}
-                      onClick={() => setEditBranch(b.value as Branch)}
-                      style={{
-                        padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
-                        border: `2px solid ${editBranch === b.value ? accentColor : '#f1f5f9'}`,
-                        background: editBranch === b.value ? `${accentColor}10` : '#fff',
-                        color: editBranch === b.value ? accentColor : '#64748b',
-                        cursor: 'pointer',
-                      }}
-                    >
-                      {b.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              {isSoldier && (
+                <>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>병종</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+                      {BRANCHES.map(b => (
+                        <button
+                          key={b.value}
+                          onClick={() => setEditBranch(b.value as Branch)}
+                          style={{
+                            padding: '10px', borderRadius: '10px', fontSize: '13px', fontWeight: 600,
+                            border: `2px solid ${editBranch === b.value ? accentColor : '#f1f5f9'}`,
+                            background: editBranch === b.value ? `${accentColor}10` : '#fff',
+                            color: editBranch === b.value ? accentColor : '#64748b',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {b.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
 
-              <div>
-                <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>입대일</label>
-                <input 
-                  type="date" value={editEnlistDate} onChange={e => setEditEnlistDate(e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', colorScheme: 'light' }}
-                />
-              </div>
+                  <div>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: '#64748b', marginBottom: '6px', display: 'block' }}>입대일</label>
+                    <input
+                      type="date" value={editEnlistDate} onChange={e => setEditEnlistDate(e.target.value)}
+                      style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0', fontSize: '14px', outline: 'none', colorScheme: 'light' }}
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
-              <button 
+              <button
                 onClick={() => setShowInfoEdit(false)}
                 style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#f1f5f9', color: '#64748b', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
               >
                 취소
               </button>
-              <button 
+              <button
                 onClick={handleSaveInfo}
                 style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: accentColor, color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
               >
@@ -455,104 +494,106 @@ export default function MyPage() {
       )}
 
       {/* ── 계급/복무기간 카드 ── */}
-      <div style={{
-        background: '#fff', borderRadius: '20px', padding: '20px',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-          <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>내 진급 상황</h3>
-          <button onClick={() => setShowRankEdit(!showRankEdit)} style={{
-            border: 'none', background: showRankEdit ? '#f1f5f9' : 'transparent',
-            fontSize: '11px', color: '#6b7280', cursor: 'pointer',
-            padding: '4px 8px', borderRadius: '8px',
-          }}>
-            {showRankEdit ? '닫기' : '✏️ 수동 조정'}
-          </button>
-        </div>
-
-        {/* 현재 계급 표시 */}
+      {isSoldier && (
         <div style={{
-          display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px',
-          padding: '12px', borderRadius: '12px',
-          background: `linear-gradient(135deg, ${accentColor}10, ${accentColor}05)`,
-          border: `1px solid ${accentColor}15`,
+          background: '#fff', borderRadius: '20px', padding: '20px',
+          boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
         }}>
-          <RankIcon level={activeRank as RankLevel} branch={branch} size={36} />
-          <div>
-            <div style={{ fontSize: '16px', fontWeight: 800, color: accentColor }}>
-              {RANK_LABELS[activeRank as RankLevel]}
-            </div>
-            <div style={{ fontSize: '11px', color: '#6b7280' }}>
-              {enlistDate && autoRank !== rankOverride && rankOverride != null
-                ? `기본 진급: ${RANK_LABELS[autoRank as RankLevel]} → 수동 설정됨`
-                : `${currentBranch.label} 기본 진급 기준`
-              }
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>내 진급 상황</h3>
+            <button onClick={() => setShowRankEdit(!showRankEdit)} style={{
+              border: 'none', background: showRankEdit ? '#f1f5f9' : 'transparent',
+              fontSize: '11px', color: '#6b7280', cursor: 'pointer',
+              padding: '4px 8px', borderRadius: '8px',
+            }}>
+              {showRankEdit ? '닫기' : '✏️ 수동 조정'}
+            </button>
           </div>
-        </div>
 
-        {/* 진급 일정 */}
-        {promotionDates && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: '12px' }}>
-            {RANKS.map(r => {
-              const dateKey = r.value === 1 ? 'private2' : r.value === 2 ? 'private1' : r.value === 3 ? 'corporal' : 'sergeant'
-              const d = promotionDates[dateKey]
-              const isCurrent = activeRank === r.value
-              return (
-                <div key={r.value} style={{
-                  textAlign: 'center', padding: '8px 2px', borderRadius: '10px',
-                  background: isCurrent ? `${accentColor}10` : '#f8fafc',
-                  border: isCurrent ? `1.5px solid ${accentColor}30` : '1.5px solid transparent',
-                }}>
-                  <div style={{ fontSize: '10px', fontWeight: 600, color: isCurrent ? accentColor : '#6b7280' }}>{r.label}</div>
-                  <div style={{ fontSize: '9px', color: '#9ca3af', marginTop: '2px' }}>{formatDate(d)}</div>
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* 계급 수정 패널 */}
-        {showRankEdit && (
+          {/* 현재 계급 표시 */}
           <div style={{
-            padding: '12px', borderRadius: '12px', background: '#f8fafc',
-            border: '1px dashed #d1d5db',
+            display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px',
+            padding: '12px', borderRadius: '12px',
+            background: `linear-gradient(135deg, ${accentColor}10, ${accentColor}05)`,
+            border: `1px solid ${accentColor}15`,
           }}>
-            <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
-              조기진급/진급누락 시 수동으로 변경하세요
+            <RankIcon level={activeRank as RankLevel} branch={branch} size={36} />
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: accentColor }}>
+                {RANK_LABELS[activeRank as RankLevel]}
+              </div>
+              <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                {enlistDate && autoRank !== rankOverride && rankOverride != null
+                  ? `기본 진급: ${RANK_LABELS[autoRank as RankLevel]} → 수동 설정됨`
+                  : `${currentBranch.label} 기본 진급 기준`
+                }
+              </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+          </div>
+
+          {/* 진급 일정 */}
+          {promotionDates && (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '4px', marginBottom: '12px' }}>
               {RANKS.map(r => {
-                const isActive = activeRank === r.value
+                const dateKey = r.value === 1 ? 'private2' : r.value === 2 ? 'private1' : r.value === 3 ? 'corporal' : 'sergeant'
+                const d = promotionDates[dateKey]
+                const isCurrent = activeRank === r.value
                 return (
-                  <button key={r.value} onClick={() => {
-                    if (r.value === autoRank) {
-                      handleRankOverride(null) // reset to auto
-                    } else {
-                      handleRankOverride(r.value)
-                    }
-                  }} style={{
-                    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
-                    padding: '8px 4px', border: `2px solid ${isActive ? accentColor : '#e5e7eb'}`,
-                    borderRadius: '10px', cursor: 'pointer',
-                    background: isActive ? `${accentColor}10` : '#fff', color: '#0f172a',
+                  <div key={r.value} style={{
+                    textAlign: 'center', padding: '8px 2px', borderRadius: '10px',
+                    background: isCurrent ? `${accentColor}10` : '#f8fafc',
+                    border: isCurrent ? `1.5px solid ${accentColor}30` : '1.5px solid transparent',
                   }}>
-                    <RankIcon level={r.value as RankLevel} branch={branch} size={24} />
-                    <span style={{ fontSize: '10px', fontWeight: 600 }}>{r.label}</span>
-                  </button>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: isCurrent ? accentColor : '#6b7280' }}>{r.label}</div>
+                    <div style={{ fontSize: '9px', color: '#9ca3af', marginTop: '2px' }}>{formatDate(d)}</div>
+                  </div>
                 )
               })}
             </div>
-            {rankOverride != null && (
-              <button onClick={() => handleRankOverride(null)} style={{
-                marginTop: '8px', width: '100%', padding: '6px', border: 'none',
-                background: 'transparent', fontSize: '11px', color: '#9ca3af',
-                cursor: 'pointer',
-              }}>기본 진급으로 되돌리기</button>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+
+          {/* 계급 수정 패널 */}
+          {showRankEdit && (
+            <div style={{
+              padding: '12px', borderRadius: '12px', background: '#f8fafc',
+              border: '1px dashed #d1d5db',
+            }}>
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
+                조기진급/진급누락 시 수동으로 변경하세요
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '6px' }}>
+                {RANKS.map(r => {
+                  const isActive = activeRank === r.value
+                  return (
+                    <button key={r.value} onClick={() => {
+                      if (r.value === autoRank) {
+                        handleRankOverride(null) // reset to auto
+                      } else {
+                        handleRankOverride(r.value)
+                      }
+                    }} style={{
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '3px',
+                      padding: '8px 4px', border: `2px solid ${isActive ? accentColor : '#e5e7eb'}`,
+                      borderRadius: '10px', cursor: 'pointer',
+                      background: isActive ? `${accentColor}10` : '#fff', color: '#0f172a',
+                    }}>
+                      <RankIcon level={r.value as RankLevel} branch={branch} size={24} />
+                      <span style={{ fontSize: '10px', fontWeight: 600 }}>{r.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+              {rankOverride != null && (
+                <button onClick={() => handleRankOverride(null)} style={{
+                  marginTop: '8px', width: '100%', padding: '6px', border: 'none',
+                  background: 'transparent', fontSize: '11px', color: '#9ca3af',
+                  cursor: 'pointer',
+                }}>기본 진급으로 되돌리기</button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 탭 네비게이션 */}
       <div style={{ display: 'flex', gap: '8px', padding: '0 4px', marginBottom: '4px' }}>
@@ -564,152 +605,152 @@ export default function MyPage() {
       {activeTab === 'info' && (
         <>
           {/* 밀포인트 & 초대 */}
-      <div style={{
-        background: '#fff', borderRadius: '16px', padding: '20px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
-      }}>
-        <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
-          💰 밀포인트 & 초대
-        </h3>
+          <div style={{
+            background: '#fff', borderRadius: '16px', padding: '20px',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+          }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+              💰 밀포인트 & 초대
+            </h3>
 
-        {/* 포인트 잔액 */}
-        <div style={{
-          padding: '16px', borderRadius: '14px', marginBottom: '14px',
-          background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`,
-          color: '#fff',
-        }}>
-          <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '4px' }}>내 밀포인트</div>
-          <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em' }}>
-            {myPoints.toLocaleString()}P
-          </div>
-          <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>
-            초대한 지인: {inviteCount}명
-          </div>
-        </div>
+            {/* 포인트 잔액 */}
+            <div style={{
+              padding: '16px', borderRadius: '14px', marginBottom: '14px',
+              background: `linear-gradient(135deg, ${accentColor}, ${accentColor}cc)`,
+              color: '#fff',
+            }}>
+              <div style={{ fontSize: '11px', opacity: 0.8, marginBottom: '4px' }}>내 밀포인트</div>
+              <div style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.02em' }}>
+                {myPoints.toLocaleString()}P
+              </div>
+              <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>
+                초대한 지인: {inviteCount}명
+              </div>
+            </div>
 
-        {/* 내 초대코드 */}
-        <div style={{
-          padding: '14px', borderRadius: '12px', background: '#f8fafc',
-          border: '1px solid #e2e8f0', marginBottom: '10px',
-        }}>
-          <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>내 초대코드</div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{
-              flex: 1, fontSize: '20px', fontWeight: 800, color: accentColor,
-              letterSpacing: '0.1em',
+            {/* 내 초대코드 */}
+            <div style={{
+              padding: '14px', borderRadius: '12px', background: '#f8fafc',
+              border: '1px solid #e2e8f0', marginBottom: '10px',
             }}>
-              {myInviteCode || '로딩...'}
-            </span>
-            <button onClick={handleCopyInviteCode} style={{
-              padding: '6px 12px', borderRadius: '8px', border: 'none',
-              background: codeCopied ? '#10b981' : '#0f172a', color: '#fff',
-              fontSize: '11px', fontWeight: 700, cursor: 'pointer',
-              transition: 'all 0.2s',
+              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px' }}>내 초대코드</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{
+                  flex: 1, fontSize: '20px', fontWeight: 800, color: accentColor,
+                  letterSpacing: '0.1em',
+                }}>
+                  {myInviteCode || '로딩...'}
+                </span>
+                <button onClick={handleCopyInviteCode} style={{
+                  padding: '6px 12px', borderRadius: '8px', border: 'none',
+                  background: codeCopied ? '#10b981' : '#0f172a', color: '#fff',
+                  fontSize: '11px', fontWeight: 700, cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}>
+                  {codeCopied ? '✓ 복사됨' : '복사'}
+                </button>
+              </div>
+            </div>
+
+            {/* 초대 링크 공유 */}
+            <button onClick={handleShareInvite} style={{
+              width: '100%', padding: '12px', borderRadius: '12px', border: 'none',
+              background: 'linear-gradient(135deg, #10b981, #059669)',
+              color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(16,185,129,0.25)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
             }}>
-              {codeCopied ? '✓ 복사됨' : '복사'}
+              <span>📨</span> 초대 링크 보내기 (가입시 양쪽 2,000P + 1,000P!)
             </button>
           </div>
-        </div>
 
-        {/* 초대 링크 공유 */}
-        <button onClick={handleShareInvite} style={{
-          width: '100%', padding: '12px', borderRadius: '12px', border: 'none',
-          background: 'linear-gradient(135deg, #10b981, #059669)',
-          color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
-          boxShadow: '0 4px 12px rgba(16,185,129,0.25)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
-        }}>
-          <span>📨</span> 초대 링크 보내기 (가입시 양쪽 2,000P + 1,000P!)
-        </button>
-      </div>
-
-      {/* 메뉴 리스트 */}
-      <div style={{
-        background: '#fff', borderRadius: '16px', overflow: 'hidden',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
-      }}>
-        {/* 마케팅 수신 동의 토글 */}
-        <div style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            padding: '14px 16px', borderBottom: '1px solid #f1f5f9'
-        }}>
-            <span style={{ fontSize: '18px' }}>🔔</span>
-            <div style={{ flex: 1 }}>
+          {/* 메뉴 리스트 */}
+          <div style={{
+            background: '#fff', borderRadius: '16px', overflow: 'hidden',
+            boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+          }}>
+            {/* 마케팅 수신 동의 토글 */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '12px',
+              padding: '14px 16px', borderBottom: '1px solid #f1f5f9'
+            }}>
+              <span style={{ fontSize: '18px' }}>🔔</span>
+              <div style={{ flex: 1 }}>
                 <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>혜택 및 광고 알림</div>
                 <div style={{ fontSize: '11px', color: '#9ca3af' }}>이벤트성 마케팅 정보 수신</div>
-            </div>
-            <div 
+              </div>
+              <div
                 onClick={() => handleMarketingToggle(!profile?.marketing_agreed)}
                 style={{
-                    width: '40px', height: '22px', borderRadius: '11px',
-                    background: profile?.marketing_agreed ? accentColor : '#e2e8f0',
-                    position: 'relative', cursor: 'pointer', transition: 'all 0.2s'
+                  width: '40px', height: '22px', borderRadius: '11px',
+                  background: profile?.marketing_agreed ? accentColor : '#e2e8f0',
+                  position: 'relative', cursor: 'pointer', transition: 'all 0.2s'
                 }}
-            >
+              >
                 <div style={{
-                    width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
-                    position: 'absolute', top: '2px', 
-                    left: profile?.marketing_agreed ? '20px' : '2px',
-                    transition: 'all 0.2s'
+                  width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                  position: 'absolute', top: '2px',
+                  left: profile?.marketing_agreed ? '20px' : '2px',
+                  transition: 'all 0.2s'
                 }} />
+              </div>
             </div>
-        </div>
 
-        {MENU_ITEMS.map((item, idx) => (
-          <div key={item.label} onClick={() => { 
-            if ('href' in item && item.href) router.push(item.href)
-            if ('action' in item && item.action) item.action()
-          }} style={{
-            display: 'flex', alignItems: 'center', gap: '12px',
-            padding: '14px 16px', cursor: 'pointer',
-            borderBottom: idx < MENU_ITEMS.length - 1 ? '1px solid #f1f5f9' : 'none',
-          }}>
-            <span style={{ fontSize: '18px' }}>{item.icon}</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>{item.label}</div>
-              <div style={{ fontSize: '11px', color: '#9ca3af' }}>{item.desc}</div>
-            </div>
-            <span style={{ fontSize: '14px', color: '#d1d5db' }}>›</span>
+            {MENU_ITEMS.map((item, idx) => (
+              <div key={item.label} onClick={() => {
+                if ('href' in item && item.href) router.push(item.href)
+                if ('action' in item && item.action) item.action()
+              }} style={{
+                display: 'flex', alignItems: 'center', gap: '12px',
+                padding: '14px 16px', cursor: 'pointer',
+                borderBottom: idx < MENU_ITEMS.length - 1 ? '1px solid #f1f5f9' : 'none',
+              }}>
+                <span style={{ fontSize: '18px' }}>{item.icon}</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>{item.label}</div>
+                  <div style={{ fontSize: '11px', color: '#9ca3af' }}>{item.desc}</div>
+                </div>
+                <span style={{ fontSize: '14px', color: '#d1d5db' }}>›</span>
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      {/* Legal Modal */}
-      {legalModal.show && (
-        <div style={{
-            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000, padding: '20px'
-        }}>
+          {/* Legal Modal */}
+          {legalModal.show && (
             <div style={{
+              position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+              backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+              zIndex: 1000, padding: '20px'
+            }}>
+              <div style={{
                 backgroundColor: 'white', borderRadius: '16px', width: '100%', maxWidth: '400px',
                 maxHeight: '80vh', display: 'flex', flexDirection: 'column'
-            }}>
+              }}>
                 <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{legalModal.title}</h3>
-                    <button onClick={() => setLegalModal({ ...legalModal, show: false })} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+                  <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{legalModal.title}</h3>
+                  <button onClick={() => setLegalModal({ ...legalModal, show: false })} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
                 </div>
                 <div style={{ padding: '20px', overflowY: 'auto', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#334155' }}>
-                    {legalModal.content}
-                    {legalModal.title === '마케팅 정보 수신 동의' && (
-                        <div style={{ marginTop: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '12px', color: '#64748b' }}>
-                            동의 상태: {profile?.marketing_agreed ? '동의함' : '동의하지 않음'}
-                            {profile?.marketing_agreed_at && ` (${formatDate(new Date(profile.marketing_agreed_at))})`}
-                        </div>
-                    )}
+                  {legalModal.content}
+                  {legalModal.title === '마케팅 정보 수신 동의' && (
+                    <div style={{ marginTop: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '12px', color: '#64748b' }}>
+                      동의 상태: {profile?.marketing_agreed ? '동의함' : '동의하지 않음'}
+                      {profile?.marketing_agreed_at && ` (${formatDate(new Date(profile.marketing_agreed_at))})`}
+                    </div>
+                  )}
                 </div>
                 <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9' }}>
-                    <button 
-                        onClick={() => setLegalModal({ ...legalModal, show: false })}
-                        style={{ width: '100%', padding: '12px', backgroundColor: accentColor, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
-                    >
-                        닫기
-                    </button>
+                  <button
+                    onClick={() => setLegalModal({ ...legalModal, show: false })}
+                    style={{ width: '100%', padding: '12px', backgroundColor: accentColor, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    닫기
+                  </button>
                 </div>
+              </div>
             </div>
-        </div>
-      )}
-      </>
+          )}
+        </>
       )}
 
       {activeTab === 'myPosts' && (
@@ -809,15 +850,15 @@ export default function MyPage() {
 
       {!isGuest && (
         <div style={{ textAlign: 'center', marginTop: '20px', paddingBottom: '40px' }}>
-          <button 
+          <button
             onClick={() => {
               setWithdrawalStep(1)
               setWithdrawalReason('')
               setShowWithdrawalModal(true)
             }}
-            style={{ 
-              background: 'none', border: 'none', color: '#94a3b8', 
-              fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' 
+            style={{
+              background: 'none', border: 'none', color: '#94a3b8',
+              fontSize: '13px', textDecoration: 'underline', cursor: 'pointer'
             }}
           >
             탈퇴하려면 여기를 눌러주세요.
@@ -841,11 +882,11 @@ export default function MyPage() {
               <>
                 <h3 style={{ margin: '0 0 8px', fontSize: '18px', fontWeight: 800 }}>Mili Connect를 떠나시나요?</h3>
                 <p style={{ margin: '0 0 20px', fontSize: '13px', color: '#64748b', lineHeight: 1.5 }}>
-                  탈퇴하시려는 이유를 알려주시면<br/>더 나은 서비스를 만드는 데 참고하겠습니다.
+                  탈퇴하시려는 이유를 알려주시면<br />더 나은 서비스를 만드는 데 참고하겠습니다.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {withdrawalReasons.map(r => (
-                    <button 
+                    <button
                       key={r}
                       onClick={() => setWithdrawalReason(r)}
                       style={{
@@ -861,7 +902,7 @@ export default function MyPage() {
                     </button>
                   ))}
                 </div>
-                <button 
+                <button
                   disabled={!withdrawalReason}
                   onClick={() => setWithdrawalStep(2)}
                   style={{
@@ -884,23 +925,23 @@ export default function MyPage() {
                   marginBottom: '20px', border: '1px solid #fee2e2'
                 }}>
                   <p style={{ margin: 0, fontSize: '13px', color: '#e11d48', fontWeight: 700, lineHeight: 1.6, textAlign: 'center' }}>
-                    탈퇴 시 현재 보유 중인 모든<br/>
-                    <span style={{ fontSize: '15px' }}>밀리포인트({profile?.points?.toLocaleString()}P)</span>가<br/>
+                    탈퇴 시 현재 보유 중인 모든<br />
+                    <span style={{ fontSize: '15px' }}>밀리포인트({profile?.points?.toLocaleString()}P)</span>가<br />
                     즉시 소멸되며 복구가 불가능합니다.
                   </p>
                 </div>
                 <p style={{ margin: '0 0 24px', fontSize: '13px', color: '#64748b', textAlign: 'center', lineHeight: 1.5 }}>
-                  작성하신 게시물과 댓글은 삭제되지 않으며,<br/>계정 정보는 모두 영구 삭제됩니다.<br/>
+                  작성하신 게시물과 댓글은 삭제되지 않으며,<br />계정 정보는 모두 영구 삭제됩니다.<br />
                   정말로 탈퇴하시겠습니까?
                 </p>
                 <div style={{ display: 'flex', gap: '10px' }}>
-                  <button 
+                  <button
                     onClick={() => setShowWithdrawalModal(false)}
                     style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#f1f5f9', color: '#64748b', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
                   >
                     취소
                   </button>
-                  <button 
+                  <button
                     onClick={handleWithdrawal}
                     style={{ flex: 1, padding: '14px', borderRadius: '14px', border: 'none', background: '#ef4444', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
                   >

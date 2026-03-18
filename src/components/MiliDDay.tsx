@@ -1,5 +1,5 @@
-"use client"
 import React, { useEffect, useMemo, useState } from 'react';
+import { useAuth } from './AuthProvider';
 
 type Branch = 'army' | 'navy' | 'airforce' | 'marines' | 'katusa';
 
@@ -37,17 +37,27 @@ function formatDate(d: Date) {
 }
 
 export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch = 'army', className }: Props) {
+  const { profile, connectedSoldier } = useAuth();
+
+  // Determine if we should use local settings or connected soldier info
+  const isSoldier = profile?.user_type === 'soldier';
+  const hasConnection = !!profile?.connected_soldier_id && !!connectedSoldier;
+
   // Local state with localStorage persistence
-  const [branch, setBranch] = useState<Branch>(propBranch);
-  const [enlistmentDate, setEnlistmentDate] = useState<string | undefined>(propDate);
+  const [localBranch, setLocalBranch] = useState<Branch>(propBranch);
+  const [localEnlistmentDate, setLocalEnlistmentDate] = useState<string | undefined>(propDate);
+
+  // Effective values: use connected soldier info if available for non-soldiers
+  const branch = (hasConnection && connectedSoldier?.branch) ? (connectedSoldier.branch as Branch) : localBranch;
+  const enlistmentDate = (hasConnection && connectedSoldier?.enlist_date) ? connectedSoldier.enlist_date : localEnlistmentDate;
 
   useEffect(() => {
     // load saved
     try {
       const savedBranch = localStorage.getItem('mili_branch') as Branch | null;
       const savedDate = localStorage.getItem('mili_enlist');
-      if (!propDate && savedDate) setEnlistmentDate(savedDate);
-      if (savedBranch) setBranch(savedBranch);
+      if (!propDate && savedDate) setLocalEnlistmentDate(savedDate);
+      if (savedBranch) setLocalBranch(savedBranch);
     } catch (e) {
       // ignore
     }
@@ -55,10 +65,10 @@ export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch 
 
   useEffect(() => {
     try {
-      if (enlistmentDate) localStorage.setItem('mili_enlist', enlistmentDate);
-      localStorage.setItem('mili_branch', branch);
+      if (localEnlistmentDate) localStorage.setItem('mili_enlist', localEnlistmentDate);
+      localStorage.setItem('mili_branch', localBranch);
     } catch (e) {}
-  }, [enlistmentDate, branch]);
+  }, [localEnlistmentDate, localBranch]);
 
   const { totalDays, passedDays, remainingDays, percent, dischargeDate } = useMemo(() => {
     if (!enlistmentDate) return { totalDays: 0, passedDays: 0, remainingDays: 0, percent: 0, dischargeDate: new Date() };
@@ -140,8 +150,18 @@ export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch 
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900">{branchMap[branch].label} 복무</h3>
-            <select className="ml-3 rounded-md border px-2 py-1 text-sm" value={branch} onChange={(e) => setBranch(e.target.value as Branch)}>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-gray-900">{branchMap[branch].label} 복무</h3>
+              {hasConnection && (
+                <span className="bg-blue-100 text-blue-600 text-[10px] px-1.5 py-0.5 rounded font-bold">공유됨</span>
+              )}
+            </div>
+            <select
+              className="ml-3 rounded-md border px-2 py-1 text-sm disabled:opacity-50"
+              value={branch}
+              onChange={(e) => setLocalBranch(e.target.value as Branch)}
+              disabled={hasConnection}
+            >
               <option value="army">육군</option>
               <option value="navy">해군</option>
               <option value="airforce">공군</option>
@@ -151,10 +171,18 @@ export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch 
           </div>
 
           <div className="mt-2">
-            <label className="text-sm text-gray-600">입대일</label>
+            <label className="text-sm text-gray-600">입대일 {hasConnection && `(${connectedSoldier?.nickname || '용사'}님)`}</label>
             <div className="mt-1 flex gap-2">
-              <input type="date" className="flex-1 rounded-md border px-3 py-2 text-sm" value={enlistmentDate ?? ''} onChange={(e) => setEnlistmentDate(e.target.value)} />
-              <button className="rounded-md bg-gray-100 px-3 py-2 text-sm" onClick={() => { setEnlistmentDate(undefined); localStorage.removeItem('mili_enlist'); }}>지우기</button>
+              <input
+                type="date"
+                className="flex-1 rounded-md border px-3 py-2 text-sm disabled:bg-gray-50"
+                value={enlistmentDate ?? ''}
+                onChange={(e) => setLocalEnlistmentDate(e.target.value)}
+                disabled={hasConnection}
+              />
+              {!hasConnection && (
+                <button className="rounded-md bg-gray-100 px-3 py-2 text-sm" onClick={() => { setLocalEnlistmentDate(undefined); localStorage.removeItem('mili_enlist'); }}>지우기</button>
+              )}
             </div>
           </div>
 

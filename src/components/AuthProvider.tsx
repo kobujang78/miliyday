@@ -20,6 +20,7 @@ export interface MiliProfile {
     marketing_agreed_at: string | null
     user_type: string
     relationship: string | null
+    connected_soldier_id: string | null
 }
 
 interface AuthContextType {
@@ -36,6 +37,7 @@ interface AuthContextType {
     setGuestMode: () => void
     refreshProfile: () => Promise<void>
     updateProfile: (updates: Partial<MiliProfile> | { rankOverride: number | null }) => void
+    connectedSoldier: Partial<MiliProfile> | null
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -46,8 +48,10 @@ const AuthContext = createContext<AuthContextType>({
     signUpWithEmail: async () => ({ error: 'Not implemented' }),
     signOut: async () => { },
     deleteAccount: async () => { },
-    setGuestMode: () => { }, refreshProfile: async () => { },
+    setGuestMode: () => { },
+    refreshProfile: async () => { },
     updateProfile: () => { },
+    connectedSoldier: null,
 })
 
 export const useAuth = () => useContext(AuthContext)
@@ -55,6 +59,7 @@ export const useAuth = () => useContext(AuthContext)
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
     const [profile, setProfile] = useState<MiliProfile | null>(null)
+    const [connectedSoldier, setConnectedSoldier] = useState<Partial<MiliProfile> | null>(null)
     const [loading, setLoading] = useState(true)
     const [isGuest, setIsGuest] = useState(false)
 
@@ -63,12 +68,28 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const fetchProfile = useCallback(async (userId: string) => {
         const { data } = await supabase
             .from('profiles')
-            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, terms_agreed, marketing_agreed, marketing_agreed_at, user_type, relationship')
+            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, terms_agreed, marketing_agreed, marketing_agreed_at, user_type, relationship, connected_soldier_id')
             .eq('id', userId)
             .single()
         if (data) setProfile(data as MiliProfile)
         return data
     }, [supabase])
+
+    useEffect(() => {
+        if (profile?.connected_soldier_id) {
+            const fetchConnectedSoldier = async () => {
+                const { data } = await supabase
+                    .from('profiles')
+                    .select('id, display_name, branch, rank_level, enlist_date, nickname')
+                    .eq('id', profile.connected_soldier_id)
+                    .single()
+                if (data) setConnectedSoldier(data as Partial<MiliProfile>)
+            }
+            fetchConnectedSoldier()
+        } else {
+            setConnectedSoldier(null)
+        }
+    }, [profile?.connected_soldier_id])
 
     const refreshProfile = useCallback(async () => {
         if (user) await fetchProfile(user.id)
@@ -96,6 +117,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                             marketing_agreed: false,
                             marketing_agreed_at: null,
                             user_type: 'soldier', relationship: null,
+                            connected_soldier_id: null,
                         })
                     }
                 } catch { }
@@ -175,7 +197,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         setProfile(null)
         setIsGuest(false)
     }
-    
+
     const deleteAccount = async () => {
         if (user) {
             // Delete public.profiles record.
@@ -220,7 +242,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     return (
         <AuthContext.Provider value={{
-            user, profile, loading, isGuest,
+            user, profile, loading, isGuest, connectedSoldier,
             signInWithGoogle, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, deleteAccount, setGuestMode, refreshProfile,
             updateProfile,
         }}>

@@ -13,7 +13,7 @@ interface Comment {
   profiles?: any
 }
 
-interface Post { 
+interface Post {
   id: string
   title: string
   body: string
@@ -56,7 +56,7 @@ export default function MilitaryBoardPage() {
   const [newCategory, setNewCategory] = useState('자유')
   const [newImage, setNewImage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
-  
+
   // Edit State
   const [editingPostId, setEditingPostId] = useState<string | null>(null)
   const [editTitle, setEditTitle] = useState('')
@@ -73,14 +73,14 @@ export default function MilitaryBoardPage() {
     const supabase = createClient()
     const { data: postsData, error } = await supabase
       .from('posts')
-      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
+      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
       .eq('board_type', 'military_board')
       .order('created_at', { ascending: false })
 
     if (!error && postsData) {
       let likesData: any[] = []
       let bookmarksData: any[] = []
-      
+
       if (user?.id) {
         const [{ data: l }, { data: b }] = await Promise.all([
           supabase.from('post_likes').select('post_id').eq('user_id', user.id),
@@ -153,7 +153,7 @@ export default function MilitaryBoardPage() {
   const handleCreatePost = async () => {
     if (!newTitle.trim() || !newBody.trim()) { alert('제목과 내용을 입력해주세요.'); return }
     if (!user) { alert('로그인이 필요합니다.'); return }
-    
+
     setIsSubmitting(true)
     const supabase = createClient()
     const { data, error } = await supabase
@@ -168,7 +168,7 @@ export default function MilitaryBoardPage() {
         likes_count: 0,
         comments_count: 0,
       })
-      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
+      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
       .single()
 
     if (!error && data) {
@@ -188,9 +188,9 @@ export default function MilitaryBoardPage() {
     if (!user) return
     const isLiked = post.isLiked
     const newLikes = isLiked ? Math.max(0, post.likes_count - 1) : post.likes_count + 1
-    
+
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isLiked: !isLiked, likes_count: newLikes } : p))
-    
+
     const supabase = createClient()
     if (isLiked) {
       await supabase.from('post_likes').delete().match({ post_id: post.id, user_id: user.id })
@@ -204,7 +204,7 @@ export default function MilitaryBoardPage() {
     if (!user) return
     const isBookmarked = post.isBookmarked
     setPosts(prev => prev.map(p => p.id === post.id ? { ...p, isBookmarked: !isBookmarked } : p))
-    
+
     const supabase = createClient()
     if (isBookmarked) {
       await supabase.from('post_bookmarks').delete().match({ post_id: post.id, user_id: user.id })
@@ -232,7 +232,7 @@ export default function MilitaryBoardPage() {
       .from('posts')
       .update({ title: editTitle, body: editBody, category: editCategory })
       .eq('id', id)
-      
+
     if (!error) {
       setPosts(prev => prev.map(p => p.id === id ? { ...p, title: editTitle, body: editBody, category: editCategory } : p))
       setEditingPostId(null)
@@ -261,10 +261,10 @@ export default function MilitaryBoardPage() {
       const supabase = createClient()
       const { data } = await supabase
         .from('comments')
-        .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
+        .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
         .eq('post_id', post.id)
         .order('created_at', { ascending: true })
-      
+
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, showComments: true, commentsList: data || [] } : p))
     } else {
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, showComments: false } : p))
@@ -280,7 +280,7 @@ export default function MilitaryBoardPage() {
     const { data } = await supabase
       .from('comments')
       .insert({ post_id: post.id, user_id: user.id, body: txt })
-      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
+      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
       .single()
 
     if (data) {
@@ -358,12 +358,22 @@ export default function MilitaryBoardPage() {
                   <div style={{
                     width: '32px', height: '32px', borderRadius: '50%',
                     background: p.profiles?.avatar_url ? `url(${p.profiles.avatar_url}) center/cover` : '#e2e8f0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
                   }}>
-                    {!p.profiles?.avatar_url && <RankIcon level={p.profiles?.rank_level || 1} branch={p.profiles?.branch || 'army'} size={20} />}
+                    {p.profiles?.avatar_url ? null : (
+                      p.profiles?.user_type === 'soldier' ? <RankIcon level={p.profiles?.rank_level || 1} branch={p.profiles?.branch || 'army'} size={20} /> :
+                      p.profiles?.user_type === 'girlfriend' ? '💝' :
+                      p.profiles?.user_type === 'family' ? '🏠' :
+                      p.profiles?.user_type === 'friend' ? '🤝' : '👤'
+                    )}
                   </div>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{authorName}</div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      {authorName}
+                      {(p.profiles?.nickname === '관리자' || p.profiles?.display_name === '관리자') && (
+                        <span style={{ fontSize: '10px', background: '#3b82f6', color: '#fff', padding: '1px 4px', borderRadius: '4px' }}>ADMIN</span>
+                      )}
+                    </div>
                     <div style={{ fontSize: '11px', color: '#9ca3af' }}>{formatTimeAgo(p.created_at)}</div>
                   </div>
                   {p.category && (
@@ -373,7 +383,7 @@ export default function MilitaryBoardPage() {
                       color: categoryColors[p.category] || '#6b7280',
                     }}>{p.category}</span>
                   )}
-                  
+
                   <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
                     {(user?.id === p.user_id || isAdmin) && (
                       <button onClick={() => {
@@ -399,20 +409,20 @@ export default function MilitaryBoardPage() {
                 {editingPostId === p.id ? (
                   <div style={{ padding: '4px 16px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <select 
-                        value={editCategory} 
+                      <select
+                        value={editCategory}
                         onChange={e => setEditCategory(e.target.value)}
                         style={{ padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px' }}
                       >
                         {CATEGORIES.filter(c => c !== '전체' && (c !== '공지사항' || isAdmin)).map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
-                      <input 
+                      <input
                         type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
                         style={{ flex: 1, padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px' }}
                       />
                     </div>
-                    <textarea 
-                      value={editBody} 
+                    <textarea
+                      value={editBody}
                       onChange={e => setEditBody(e.target.value)}
                       style={{ width: '100%', boxSizing: 'border-box', padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px', resize: 'vertical', minHeight: '100px' }}
                     />
@@ -476,14 +486,22 @@ export default function MilitaryBoardPage() {
                         <div style={{
                           width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
                           background: c.profiles?.avatar_url ? `url(${c.profiles.avatar_url}) center/cover` : '#e2e8f0',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px'
                         }}>
-                          {!c.profiles?.avatar_url && <RankIcon level={c.profiles?.rank_level || 1} branch={c.profiles?.branch || 'army'} size={14} />}
+                          {c.profiles?.avatar_url ? null : (
+                            c.profiles?.user_type === 'soldier' ? <RankIcon level={c.profiles?.rank_level || 1} branch={c.profiles?.branch || 'army'} size={14} /> :
+                            c.profiles?.user_type === 'girlfriend' ? '💝' :
+                            c.profiles?.user_type === 'family' ? '🏠' :
+                            c.profiles?.user_type === 'friend' ? '🤝' : '👤'
+                          )}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
                             <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
                               {c.profiles?.nickname || c.profiles?.display_name || '사용자'}
+                              {(c.profiles?.nickname === '관리자' || c.profiles?.display_name === '관리자') && (
+                                <span style={{ fontSize: '9px', background: '#3b82f6', color: '#fff', padding: '0 3px', borderRadius: '3px', marginLeft: '3px' }}>ADMIN</span>
+                              )}
                             </span>
                             <span style={{ fontSize: '10px', color: '#9ca3af' }}>{formatTimeAgo(c.created_at)}</span>
                           </div>
@@ -492,11 +510,11 @@ export default function MilitaryBoardPage() {
                       </div>
                     ))}
                     <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                      <input 
-                        type="text" placeholder="댓글을 남겨보세요..." 
+                      <input
+                        type="text" placeholder="댓글을 남겨보세요..."
                         value={commentInput[p.id] || ''}
                         onChange={(e) => setCommentInput(prev => ({ ...prev, [p.id]: e.target.value }))}
-                        onKeyDown={(e) => { if(e.key === 'Enter') submitComment(p) }}
+                        onKeyDown={(e) => { if (e.key === 'Enter') submitComment(p) }}
                         style={{
                           flex: 1, padding: '8px 12px', borderRadius: '16px', border: '1px solid #e2e8f0',
                           fontSize: '13px', outline: 'none'
@@ -518,7 +536,7 @@ export default function MilitaryBoardPage() {
       {/* 작성 모달 */}
       {showModal && (
         <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', 
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
           zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px'
         }}>
           <div style={{
@@ -526,30 +544,30 @@ export default function MilitaryBoardPage() {
             padding: '24px', paddingBottom: '32px'
           }}>
             <h3 style={{ margin: '0 0 16px', fontSize: '18px', fontWeight: 800 }}>새 게시물 작성</h3>
-            
+
             <select value={newCategory} onChange={e => setNewCategory(e.target.value)} style={{
               width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',
               marginBottom: '12px', fontSize: '14px', outline: 'none', background: '#fafbff'
             }}>
               {CATEGORIES.filter(c => c !== '전체').map(c => {
-                 // 공지사항은 관리자만 선택 가능하도록 처리
-                 if (c === '공지사항') {
-                   const isAuthAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자';
-                   if (!isAuthAdmin) return null;
-                 }
-                 return <option key={c} value={c}>{c}</option>
+                // 공지사항은 관리자만 선택 가능하도록 처리
+                if (c === '공지사항') {
+                  const isAuthAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자';
+                  if (!isAuthAdmin) return null;
+                }
+                return <option key={c} value={c}>{c}</option>
               })}
             </select>
 
-            <input 
+            <input
               type="text" placeholder="제목을 입력하세요" value={newTitle} onChange={e => setNewTitle(e.target.value)}
               style={{
                 width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',
                 marginBottom: '12px', fontSize: '14px', outline: 'none', boxSizing: 'border-box'
               }}
             />
-            
-            <textarea 
+
+            <textarea
               placeholder="내용을 자세히 작성해주세요" value={newBody} onChange={e => setNewBody(e.target.value)}
               style={{
                 width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0',

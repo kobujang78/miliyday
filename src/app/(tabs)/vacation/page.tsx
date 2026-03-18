@@ -24,9 +24,14 @@ function daysUntil(target: Date) {
 }
 
 export default function VacationPage() {
-  const { profile, user } = useAuth()
-  const branch = (profile?.branch as Branch) || 'army'
-  const enlistDate = profile?.enlist_date || ''
+  const { profile, user, connectedSoldier } = useAuth()
+  
+  const isSoldier = profile?.user_type === 'soldier'
+  const targetUserId = profile?.connected_soldier_id || user?.id
+  const isShared = !!profile?.connected_soldier_id && !!connectedSoldier
+  
+  const branch = (isShared ? connectedSoldier?.branch : profile?.branch) as Branch || 'army'
+  const enlistDate = (isShared ? connectedSoldier?.enlist_date : profile?.enlist_date) || ''
   const totalServiceMonths = SERVICE_MONTHS[branch]
 
   const dischargeDate = useMemo(() => {
@@ -53,16 +58,16 @@ export default function VacationPage() {
   // Load data from Supabase
   useEffect(() => {
     const load = async () => {
-      const userId = user?.id
+      if (!targetUserId) return
       const [recs, buds] = await Promise.all([
-        loadVacationRecords(userId),
-        loadVacationBudgets(userId, branch),
+        loadVacationRecords(targetUserId),
+        loadVacationBudgets(targetUserId, branch),
       ])
       setRecords(recs)
       setBudgets(buds)
     }
     load()
-  }, [user, branch])
+  }, [targetUserId, branch])
 
   const usedDays = useMemo(() => calcUsedDays(records), [records])
   const nextDDay = useMemo(() => nextVacationDDay(records), [records])
@@ -131,10 +136,19 @@ export default function VacationPage() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{ fontSize: '22px' }}>🗓️</span>
             <h2 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>휴가 관리</h2>
+            {isShared && (
+              <span style={{ 
+                background: 'rgba(255,255,255,0.2)', 
+                padding: '2px 8px', 
+                borderRadius: '8px', 
+                fontSize: '10px', 
+                fontWeight: 700 
+              }}>연동됨</span>
+            )}
           </div>
           {dischargeDate && (
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '10px', opacity: 0.8 }}>전역까지</div>
+              <div style={{ fontSize: '10px', opacity: 0.8 }}>{isShared ? `${connectedSoldier?.nickname || '용사'}님 전역까지` : '전역까지'}</div>
               <div style={{ fontSize: '13px', fontWeight: 800 }}>D-{daysUntil(dischargeDate)}</div>
             </div>
           )}
@@ -184,10 +198,12 @@ export default function VacationPage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
           <h3 style={{ margin: 0, fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>종류별 현황</h3>
-          <button onClick={() => setShowBudgetEdit(!showBudgetEdit)} style={{
-            border: 'none', background: '#f1f5f9', padding: '5px 12px', borderRadius: '12px',
-            fontSize: '11px', fontWeight: 600, color: '#64748b', cursor: 'pointer',
-          }}>⚙️ 일수 설정</button>
+          {!isShared && (
+            <button onClick={() => setShowBudgetEdit(!showBudgetEdit)} style={{
+              border: 'none', background: '#f1f5f9', padding: '5px 12px', borderRadius: '12px',
+              fontSize: '11px', fontWeight: 600, color: '#64748b', cursor: 'pointer',
+            }}>⚙️ 일수 설정</button>
+          )}
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -261,16 +277,18 @@ export default function VacationPage() {
       </div>
 
       {/* ── 휴가 등록 버튼 ── */}
-      <button onClick={() => setShowForm(!showForm)} style={{
-        width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
-        background: showForm ? '#f1f5f9' : 'linear-gradient(135deg, #059669, #10b981)',
-        color: showForm ? '#64748b' : '#fff',
-        fontSize: '14px', fontWeight: 700, cursor: 'pointer',
-        boxShadow: showForm ? 'none' : '0 4px 12px rgba(16,185,129,0.3)',
-        transition: 'all 0.3s',
-      }}>
-        {showForm ? '✕ 취소' : '➕ 휴가 등록하기'}
-      </button>
+      {!isShared && (
+        <button onClick={() => setShowForm(!showForm)} style={{
+          width: '100%', padding: '14px', borderRadius: '14px', border: 'none',
+          background: showForm ? '#f1f5f9' : 'linear-gradient(135deg, #059669, #10b981)',
+          color: showForm ? '#64748b' : '#fff',
+          fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+          boxShadow: showForm ? 'none' : '0 4px 12px rgba(16,185,129,0.3)',
+          transition: 'all 0.3s',
+        }}>
+          {showForm ? '✕ 취소' : '➕ 휴가 등록하기'}
+        </button>
+      )}
 
       {/* ── 휴가 등록 폼 ── */}
       {showForm && (
@@ -407,10 +425,12 @@ export default function VacationPage() {
                     </div>
                     {r.memo && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>{r.memo}</div>}
                   </div>
-                  <button onClick={() => handleDelete(r.id)} style={{
-                    border: 'none', background: 'none', fontSize: '16px', cursor: 'pointer',
-                    color: '#cbd5e1', padding: '4px', flexShrink: 0,
-                  }}>✕</button>
+                  {!isShared && (
+                    <button onClick={() => handleDelete(r.id)} style={{
+                      border: 'none', background: 'none', fontSize: '16px', cursor: 'pointer',
+                      color: '#cbd5e1', padding: '4px', flexShrink: 0,
+                    }}>✕</button>
+                  )}
                 </div>
               )
             })}

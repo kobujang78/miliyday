@@ -57,7 +57,7 @@ export default function OnboardingPage() {
     }, [user, isGuest, profile, router, step])
 
     const branchColorMap: Record<Branch, string> = {
-        army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b'
+        army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b', katusa: '#967117'
     }
     const accentColor = branchColorMap[branch]
 

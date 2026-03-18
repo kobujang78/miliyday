@@ -10,6 +10,7 @@ export const PROMOTION_MONTHS: Record<Branch, { toPrivate1: number; toCorporal: 
     navy: { toPrivate1: 2, toCorporal: 8, toSergeant: 14 },
     airforce: { toPrivate1: 2, toCorporal: 8, toSergeant: 14 },
     marines: { toPrivate1: 2, toCorporal: 8, toSergeant: 14 },
+    katusa: { toPrivate1: 2, toCorporal: 8, toSergeant: 14 },
 }
 
 /**

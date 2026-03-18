@@ -30,7 +30,7 @@ export default function Home() {
   const activeRank = enlistDate ? calcAutoRank(enlistDate, branch) : ((profile?.rank_level as RankLevel) || 1)
 
   const currentBranch = BRANCHES.find(b => b.value === branch)!
-  const accentColor = { army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b' }[branch]
+  const accentColor = { army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b', katusa: '#967117' }[branch]
 
   // Notices from Supabase
   const [notices, setNotices] = useState<Notice[]>([])

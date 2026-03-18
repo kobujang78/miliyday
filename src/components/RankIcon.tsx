@@ -1,7 +1,7 @@
 "use client"
 import React from 'react'
 
-export type Branch = 'army' | 'navy' | 'airforce' | 'marines'
+export type Branch = 'army' | 'navy' | 'airforce' | 'marines' | 'katusa'
 export type RankLevel = 1 | 2 | 3 | 4
 
 interface RankIconProps {
@@ -16,6 +16,7 @@ const branchColors: Record<Branch, { primary: string; secondary: string }> = {
     navy: { primary: '#1a365d', secondary: '#2b6cb0' },
     airforce: { primary: '#4a1d96', secondary: '#6d28d9' },
     marines: { primary: '#991b1b', secondary: '#dc2626' },
+    katusa: { primary: '#967117', secondary: '#c2b280' },
 }
 
 /**
@@ -87,6 +88,7 @@ export const BRANCHES: { value: Branch; label: string; color: string }[] = [
     { value: 'navy', label: '해군', color: '#1a365d' },
     { value: 'airforce', label: '공군', color: '#4a1d96' },
     { value: 'marines', label: '해병대', color: '#991b1b' },
+    { value: 'katusa', label: '카투사', color: '#967117' },
 ]
 
 /** Service duration in months per branch (as of current Korean law) */
@@ -95,4 +97,5 @@ export const SERVICE_MONTHS: Record<Branch, number> = {
     navy: 20,
     airforce: 21,
     marines: 18,
+    katusa: 18,
 }

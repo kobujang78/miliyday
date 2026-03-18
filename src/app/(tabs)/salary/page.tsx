@@ -205,7 +205,7 @@ export default function SalaryPage() {
           }}>마이페이지에서 입대일을 입력하면 월급 캘린더가 표시됩니다</div>
         ) : (
           <div ref={timelineRef} style={{
-            display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '8px',
+            display: 'flex', gap: '8px', overflowX: 'auto', padding: '12px 0 8px',
             scrollBehavior: 'smooth', WebkitOverflowScrolling: 'touch',
           }}>
             {monthlyEntries.map((e, i) => {

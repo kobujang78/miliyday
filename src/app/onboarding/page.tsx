@@ -23,16 +23,23 @@ export default function OnboardingPage() {
     const [saving, setSaving] = useState(false)
     const [authError, setAuthError] = useState('')
     const [inviteCode, setInviteCode] = useState('')
+    const [agreedPrivacy, setAgreedPrivacy] = useState(false)
 
     // Splash timer
     useEffect(() => {
         const timer = setTimeout(() => {
             if (!user && !isGuest) {
                 setStep('login')
-            } else if (profile?.display_name && !isGuest) {
+            } else if (profile?.privacy_policy_agreed && !isGuest) {
                 router.replace('/')
             } else {
                 setStep('profile')
+                // Pre-fill from Google/Social if available
+                if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
+                    const fallbackName = user.user_metadata.full_name || user.user_metadata.name
+                    if (!name) setName(fallbackName)
+                    if (!nickname) setNickname(fallbackName)
+                }
             }
         }, 3000)
         return () => clearTimeout(timer)
@@ -47,12 +54,18 @@ export default function OnboardingPage() {
         if (!user && !isGuest) {
             setStep('login')
         } else {
-            // If already has profile, skip to home
-            if (profile?.display_name && !isGuest) {
+            // If already has profile (agreed to privacy), skip to home
+            if (profile?.privacy_policy_agreed && !isGuest) {
                 router.replace('/')
                 return
             }
             setStep('profile')
+            // Pre-fill from Google/Social if available
+            if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
+                const fallbackName = user.user_metadata.full_name || user.user_metadata.name
+                if (!name) setName(fallbackName)
+                if (!nickname) setNickname(fallbackName)
+            }
         }
     }, [user, isGuest, profile, router, step])
 
@@ -101,6 +114,7 @@ export default function OnboardingPage() {
 
     const handleSave = async () => {
         if (!name.trim()) { alert('이름을 입력해주세요'); return }
+        if (!agreedPrivacy) { alert('개인정보 처리방침에 동의해주세요'); return }
         setSaving(true)
 
         try {
@@ -115,6 +129,8 @@ export default function OnboardingPage() {
                     rank_level: rank,
                     enlist_date: enlistDate || null,
                     nickname_updated_at: nickname.trim() ? new Date().toISOString() : null,
+                    privacy_policy_agreed: true,
+                    privacy_policy_agreed_at: new Date().toISOString(),
                 })
                 if (error) {
                     console.error('Profile save error:', error)
@@ -505,6 +521,31 @@ export default function OnboardingPage() {
                                 </div>
                             </div>
                         )}
+
+                        {/* 개인정보 동의 */}
+                        <div 
+                            onClick={() => setAgreedPrivacy(!agreedPrivacy)}
+                            style={{
+                                display: 'flex', alignItems: 'center', gap: '10px',
+                                padding: '12px', borderRadius: '12px', background: '#f8fafc',
+                                border: `1.5px solid ${agreedPrivacy ? accentColor : '#e5e7eb'}`,
+                                cursor: 'pointer', marginBottom: '20px', transition: 'all 0.2s',
+                            }}
+                        >
+                            <div style={{
+                                width: '20px', height: '20px', borderRadius: '4px',
+                                border: `2px solid ${agreedPrivacy ? accentColor : '#cbd5e1'}`,
+                                background: agreedPrivacy ? accentColor : '#fff',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: '#fff', fontSize: '14px',
+                            }}>
+                                {agreedPrivacy && '✓'}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>개인정보 처리방침 동의 (필수)</div>
+                                <div style={{ fontSize: '11px', color: '#64748b' }}>서비스 이용을 위해 개인정보 수집 및 이용에 동의합니다</div>
+                            </div>
+                        </div>
 
                         {/* 저장 버튼 */}
                         <button onClick={handleSave} disabled={saving} style={{

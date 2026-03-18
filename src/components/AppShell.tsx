@@ -18,10 +18,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         if (loading) return
         if (isOnboarding || isCallback) { setChecked(true); return }
+        
         const onboarded = localStorage.getItem('mili_onboarded')
-        if (!user && !isGuest && !onboarded) { router.replace('/onboarding'); return }
+        
+        // If real user is logged in but hasn't agreed to privacy policy, they are NOT fully onboarded
+        const isFullyOnboarded = isGuest || (user && profile?.privacy_policy_agreed)
+        
+        if (!isFullyOnboarded && !onboarded) {
+            router.replace('/onboarding')
+            return
+        }
         setChecked(true)
-    }, [loading, user, isGuest, isOnboarding, isCallback, router])
+    }, [loading, user, profile, isGuest, isOnboarding, isCallback, router])
 
     // Derive header profile data from AuthProvider's profile (single source of truth)
     const headerProfile = useMemo(() => {

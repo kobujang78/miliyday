@@ -34,15 +34,26 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // Derive header profile data from AuthProvider's profile (single source of truth)
     const headerProfile = useMemo(() => {
         if (!profile) return null
+        const userType = profile.user_type || 'soldier'
         const branch = (profile.branch as Branch) || 'army'
         const enlistDate = profile.enlist_date || ''
         const autoRank = enlistDate ? calcAutoRank(enlistDate, branch) : (profile.rank_level as RankLevel || 1)
+        
+        const typeLabelMap: Record<string, string> = {
+            soldier: '',
+            girlfriend: '여자친구',
+            family: '가족',
+            friend: '친구'
+        }
+
         return {
             name: profile.display_name || '',
             nickname: profile.nickname || '',
             avatar_url: profile.avatar_url || '',
             branch,
             rank: autoRank as RankLevel,
+            userType,
+            typeLabel: typeLabelMap[userType] || ''
         }
     }, [profile])
 
@@ -92,10 +103,18 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                 width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover',
                             }} />
                         ) : (
-                            <RankIcon level={headerProfile.rank} branch={headerProfile.branch} size={22} />
+                            <RankIcon 
+                                level={headerProfile.userType === 'soldier' ? headerProfile.rank : 1} 
+                                branch={headerProfile.userType === 'soldier' ? headerProfile.branch : 'army'} 
+                                size={22} 
+                            />
                         )}
                         <span style={{ fontSize: '12px', fontWeight: 700, color: branchColor }}>
-                            {headerProfile.nickname || `${RANK_LABELS[headerProfile.rank]} ${headerProfile.name}`}
+                            {headerProfile.nickname || (
+                                headerProfile.userType === 'soldier' 
+                                ? `${RANK_LABELS[headerProfile.rank]} ${headerProfile.name}`
+                                : `${headerProfile.typeLabel} ${headerProfile.name}`
+                            )}
                         </span>
                     </div>
                 ) : (

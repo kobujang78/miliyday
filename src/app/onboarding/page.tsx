@@ -10,7 +10,9 @@ export default function OnboardingPage() {
     const { user, profile, isGuest, signInWithOAuth, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
-    const [step, setStep] = useState<'splash' | 'login' | 'profile'>('splash')
+    const [step, setStep] = useState<'splash' | 'login' | 'userType' | 'profile'>('splash')
+    const [userType, setUserType] = useState<'soldier' | 'girlfriend' | 'friend' | 'family'>('soldier')
+    const [relationship, setRelationship] = useState('')
     const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
@@ -33,7 +35,7 @@ export default function OnboardingPage() {
             } else if (profile?.privacy_policy_agreed && !isGuest) {
                 router.replace('/')
             } else {
-                setStep('profile')
+                setStep('userType')
                 // Pre-fill from Google/Social if available
                 if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
                     const fallbackName = user.user_metadata.full_name || user.user_metadata.name
@@ -59,7 +61,7 @@ export default function OnboardingPage() {
                 router.replace('/')
                 return
             }
-            setStep('profile')
+            setStep('userType')
             // Pre-fill from Google/Social if available
             if (user?.user_metadata?.full_name || user?.user_metadata?.name) {
                 const fallbackName = user.user_metadata.full_name || user.user_metadata.name
@@ -76,7 +78,7 @@ export default function OnboardingPage() {
 
     const handleGuestContinue = () => {
         setGuestMode()
-        setStep('profile')
+        setStep('userType')
     }
 
     const handleEmailAuth = async () => {
@@ -106,7 +108,7 @@ export default function OnboardingPage() {
             setSaving(false)
         } else {
             if (authMode === 'signup') {
-                setStep('profile')
+                setStep('userType')
             }
             setSaving(false)
         }
@@ -125,12 +127,14 @@ export default function OnboardingPage() {
                     email: user.email || '',
                     display_name: name,
                     nickname: nickname.trim() || name,
-                    branch,
-                    rank_level: rank,
-                    enlist_date: enlistDate || null,
+                    branch: userType === 'soldier' ? branch : 'army',
+                    rank_level: userType === 'soldier' ? rank : 1,
+                    enlist_date: userType === 'soldier' ? (enlistDate || null) : null,
                     nickname_updated_at: nickname.trim() ? new Date().toISOString() : null,
                     privacy_policy_agreed: true,
                     privacy_policy_agreed_at: new Date().toISOString(),
+                    user_type: userType,
+                    relationship: userType !== 'soldier' ? relationship : null,
                 })
                 if (error) {
                     console.error('Profile save error:', error)
@@ -141,7 +145,10 @@ export default function OnboardingPage() {
             }
 
             localStorage.setItem('mili_profile', JSON.stringify({
-                name, branch, rank, enlistDate
+                name, branch: userType === 'soldier' ? branch : 'army', 
+                rank: userType === 'soldier' ? rank : 1, 
+                enlistDate: userType === 'soldier' ? enlistDate : null,
+                userType, relationship
             }))
             localStorage.setItem('mili_onboarded', 'true')
 
@@ -417,44 +424,108 @@ export default function OnboardingPage() {
                             </p>
                         </div>
                     </div>
+                ) : step === 'userType' ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#0f172a', textAlign: 'center' }}>
+                            당신은 누구신가요?
+                        </h2>
+                        <p style={{ margin: '-10px 0 10px', fontSize: '13px', color: '#64748b', textAlign: 'center' }}>
+                            신분에 따라 최적화된 서비스를 제공해 드립니다.
+                        </p>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                            {[
+                                { id: 'soldier', label: '현역병', icon: '🎖️', desc: '군 복무 중인 용사' },
+                                { id: 'girlfriend', label: '여자친구', icon: '💝', desc: '든든한 곰신' },
+                                { id: 'family', label: '가족', icon: '🏠', desc: '자랑스러운 아들/형제' },
+                                { id: 'friend', label: '친구', icon: '🤝', desc: '늘 응원하는 전우/친구' },
+                            ].map(t => (
+                                <button
+                                    key={t.id}
+                                    onClick={() => setUserType(t.id as any)}
+                                    style={{
+                                        padding: '20px 10px', borderRadius: '16px', border: '2px solid',
+                                        borderColor: userType === t.id ? '#2563eb' : '#f1f5f9',
+                                        background: userType === t.id ? '#eff6ff' : '#fff',
+                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px',
+                                        cursor: 'pointer', transition: 'all 0.2s',
+                                    }}
+                                >
+                                    <span style={{ fontSize: '32px' }}>{t.icon}</span>
+                                    <span style={{ fontSize: '15px', fontWeight: 800, color: userType === t.id ? '#1e40af' : '#475569' }}>{t.label}</span>
+                                    <span style={{ fontSize: '10px', color: '#94a3b8' }}>{t.desc}</span>
+                                </button>
+                            ))}
+                        </div>
+                        <button 
+                            onClick={() => setStep('profile')}
+                            style={{
+                                width: '100%', padding: '15px', borderRadius: '12px', border: 'none',
+                                background: '#0f172a', color: '#fff', fontSize: '15px', fontWeight: 800,
+                                cursor: 'pointer', marginTop: '10px', boxShadow: '0 4px 12px rgba(15,23,42,0.2)'
+                            }}
+                        >
+                            선택 완료
+                        </button>
+                    </div>
                 ) : (
                     <>
                         {/* Profile Setup */}
-                        <h2 style={{ margin: '0 0 20px', fontSize: '18px', fontWeight: 700, color: '#0f172a', textAlign: 'center' }}>
-                            관등성명 입력
+                        <h2 style={{ margin: '0 0 10px', fontSize: '18px', fontWeight: 700, color: '#0f172a', textAlign: 'center' }}>
+                            {userType === 'soldier' ? '관등성명 입력' : '내 정보 입력'}
                         </h2>
 
-                        {/* 군 선택 */}
-                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>소속</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '16px' }}>
-                            {BRANCHES.map(b => (
-                                <button key={b.value} onClick={() => setBranch(b.value)} style={{
-                                    flex: 1, padding: '8px 0', border: `2px solid ${branch === b.value ? b.color : '#e5e7eb'}`,
-                                    borderRadius: '10px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
-                                    background: branch === b.value ? `${b.color}12` : '#f8fafc', color: b.color,
-                                    transition: 'all 0.2s',
-                                }}>{b.label}</button>
-                            ))}
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '20px' }}>
+                            <div style={{ 
+                                background: '#f1f5f9', color: '#64748b', padding: '4px 12px', 
+                                borderRadius: '20px', fontSize: '12px', fontWeight: 700 
+                            }}>
+                                {userType === 'soldier' ? '🎖️ 현역병' : 
+                                 userType === 'girlfriend' ? '💝 여자친구' : 
+                                 userType === 'family' ? '🏠 가족' : '🤝 친구'}
+                            </div>
+                            <button 
+                                onClick={() => setStep('userType')}
+                                style={{ background: 'none', border: 'none', color: '#3b82f6', fontSize: '11px', fontWeight: 700, cursor: 'pointer' }}
+                            >
+                                변경하기
+                            </button>
                         </div>
 
-                        {/* 계급 선택 */}
-                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>계급</label>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
-                            {RANKS.map(r => {
-                                const isActive = rank === r.value
-                                return (
-                                    <button key={r.value} onClick={() => setRank(r.value)} style={{
-                                        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-                                        padding: '10px 4px', border: `2px solid ${isActive ? accentColor : '#e5e7eb'}`,
-                                        borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s',
-                                        background: isActive ? `${accentColor}10` : '#fafbff', color: '#0f172a',
-                                    }}>
-                                        <RankIcon level={r.value} branch={branch} size={28} />
-                                        <span style={{ fontSize: '11px', fontWeight: 600 }}>{r.label}</span>
-                                    </button>
-                                )
-                            })}
-                        </div>
+                        {userType === 'soldier' && (
+                            <>
+                                {/* 군 선택 */}
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>소속</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '16px' }}>
+                                    {BRANCHES.map(b => (
+                                        <button key={b.value} onClick={() => setBranch(b.value)} style={{
+                                            flex: 1, padding: '8px 0', border: `2px solid ${branch === b.value ? b.color : '#e5e7eb'}`,
+                                            borderRadius: '10px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                                            background: branch === b.value ? `${b.color}12` : '#f8fafc', color: b.color,
+                                            transition: 'all 0.2s',
+                                        }}>{b.label}</button>
+                                    ))}
+                                </div>
+
+                                {/* 계급 선택 */}
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>계급</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '16px' }}>
+                                    {RANKS.map(r => {
+                                        const isActive = rank === r.value
+                                        return (
+                                            <button key={r.value} onClick={() => setRank(r.value)} style={{
+                                                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
+                                                padding: '10px 4px', border: `2px solid ${isActive ? accentColor : '#e5e7eb'}`,
+                                                borderRadius: '12px', cursor: 'pointer', transition: 'all 0.2s',
+                                                background: isActive ? `${accentColor}10` : '#fafbff', color: '#0f172a',
+                                            }}>
+                                                <RankIcon level={r.value} branch={branch} size={28} />
+                                                <span style={{ fontSize: '11px', fontWeight: 600 }}>{r.label}</span>
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            </>
+                        )}
 
                         {/* 이름 */}
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>이름</label>
@@ -483,14 +554,35 @@ export default function OnboardingPage() {
                         />
 
                         {/* 입대일 */}
-                        <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>입대일</label>
-                        <input
-                            type="date" value={enlistDate} onChange={e => setEnlistDate(e.target.value)}
-                            style={{
-                                width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
-                                fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '16px',
-                            }}
-                        />
+                        {userType === 'soldier' && (
+                            <>
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>입대일</label>
+                                <input
+                                    type="date" value={enlistDate} onChange={e => setEnlistDate(e.target.value)}
+                                    style={{
+                                        width: '100%', padding: '10px 14px', border: '1.5px solid #e5e7eb', borderRadius: '10px',
+                                        fontSize: '14px', outline: 'none', boxSizing: 'border-box', marginBottom: '16px',
+                                    }}
+                                />
+                            </>
+                        )}
+
+                        {/* 관계 선택 (현역병 아닐 때) */}
+                        {userType !== 'soldier' && (
+                            <>
+                                <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>관련 용사와의 관계 (선택)</label>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '6px', marginBottom: '16px' }}>
+                                    {['애인', '부모', '형제/자매', '친구', '전우', '기타'].map(rel => (
+                                        <button key={rel} onClick={() => setRelationship(rel)} style={{
+                                            padding: '8px 0', border: `2px solid ${relationship === rel ? '#3b82f6' : '#e5e7eb'}`,
+                                            borderRadius: '10px', fontSize: '12px', fontWeight: 600, cursor: 'pointer',
+                                            background: relationship === rel ? '#eff6ff' : '#f8fafc', color: relationship === rel ? '#1e40af' : '#6b7280',
+                                            transition: 'all 0.2s',
+                                        }}>{rel}</button>
+                                    ))}
+                                </div>
+                            </>
+                        )}
 
                         {/* 초대코드 */}
                         <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>초대코드 (선택)</label>
@@ -511,13 +603,15 @@ export default function OnboardingPage() {
                                 border: `1px solid ${accentColor}20`, marginBottom: '20px',
                             }}>
                                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                                    <RankIcon level={rank} branch={branch} size={24} />
-                                    <span style={{ fontSize: '17px', fontWeight: 800, color: accentColor }}>
-                                        {RANKS.find(r => r.value === rank)?.label} {name}
+                                    <RankIcon level={userType === 'soldier' ? rank : 1} branch={userType === 'soldier' ? branch : 'army'} size={24} />
+                                    <span style={{ fontSize: '17px', fontWeight: 800, color: userType === 'soldier' ? accentColor : '#0f172a' }}>
+                                        {userType === 'soldier' ? `${RANKS.find(r => r.value === rank)?.label} ` : ''}{name}
                                     </span>
                                 </div>
                                 <div style={{ fontSize: '11px', color: '#6b7280', marginTop: '4px' }}>
-                                    {BRANCHES.find(b => b.value === branch)?.label} 병사
+                                    {userType === 'soldier' ? `${BRANCHES.find(b => b.value === branch)?.label} 용사` : 
+                                     userType === 'girlfriend' ? '든든한 곰신' : 
+                                     userType === 'family' ? '소중한 가족' : '응원하는 친구'}
                                 </div>
                             </div>
                         )}

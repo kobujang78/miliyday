@@ -11,6 +11,7 @@ function formatDate(d: Date) {
 
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
+import { TERMS_OF_SERVICE, PRIVACY_POLICY, MARKETING_CONSENT } from '@/constants/legal'
 
 export default function MyPage() {
   const router = useRouter()
@@ -28,6 +29,7 @@ export default function MyPage() {
   const [myPosts, setMyPosts] = useState<any[]>([])
   const [bookmarkedPosts, setBookmarkedPosts] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'info' | 'myPosts' | 'bookmarks'>('info')
+  const [legalModal, setLegalModal] = useState<{ show: boolean, title: string, content: string }>({ show: false, title: '', content: '' })
 
   // Editing state for profile
   const [editName, setEditName] = useState('')
@@ -260,10 +262,25 @@ export default function MyPage() {
 
   const MENU_ITEMS = [
     { icon: '💰', label: '포인트 내역', desc: '적립/사용 내역 확인', href: '/points' },
-    { icon: '🔔', label: '알림 설정', desc: '푸시 알림 관리' },
-    { icon: '🛡️', label: '개인정보', desc: '개인정보 처리방침' },
+    { icon: '📜', label: '이용약관', desc: '서비스 이용약관 확인', action: () => setLegalModal({ show: true, title: '이용약관', content: TERMS_OF_SERVICE }) },
+    { icon: '🛡️', label: '개인정보', desc: '개인정보 처리방침 확인', action: () => setLegalModal({ show: true, title: '개인정보 처리방침', content: PRIVACY_POLICY }) },
     { icon: 'ℹ️', label: '앱 정보', desc: '슬기로운 병영생활 v0.1' },
   ]
+
+  const handleMarketingToggle = async (agreed: boolean) => {
+    if (!user) return
+    const updates = { 
+        marketing_agreed: agreed,
+        marketing_agreed_at: agreed ? new Date().toISOString() : null
+    }
+    const supabase = createClient()
+    const { error } = await supabase.from('profiles').update(updates).eq('id', user.id)
+    if (!error) {
+        updateProfile(updates)
+    } else {
+        alert('설정 변경에 실패했습니다.')
+    }
+  }
 
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -611,8 +628,38 @@ export default function MyPage() {
         background: '#fff', borderRadius: '16px', overflow: 'hidden',
         boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
       }}>
+        {/* 마케팅 수신 동의 토글 */}
+        <div style={{
+            display: 'flex', alignItems: 'center', gap: '12px',
+            padding: '14px 16px', borderBottom: '1px solid #f1f5f9'
+        }}>
+            <span style={{ fontSize: '18px' }}>🔔</span>
+            <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#0f172a' }}>혜택 및 광고 알림</div>
+                <div style={{ fontSize: '11px', color: '#9ca3af' }}>이벤트성 마케팅 정보 수신</div>
+            </div>
+            <div 
+                onClick={() => handleMarketingToggle(!profile?.marketing_agreed)}
+                style={{
+                    width: '40px', height: '22px', borderRadius: '11px',
+                    background: profile?.marketing_agreed ? accentColor : '#e2e8f0',
+                    position: 'relative', cursor: 'pointer', transition: 'all 0.2s'
+                }}
+            >
+                <div style={{
+                    width: '18px', height: '18px', borderRadius: '50%', background: '#fff',
+                    position: 'absolute', top: '2px', 
+                    left: profile?.marketing_agreed ? '20px' : '2px',
+                    transition: 'all 0.2s'
+                }} />
+            </div>
+        </div>
+
         {MENU_ITEMS.map((item, idx) => (
-          <div key={item.label} onClick={() => { if ('href' in item && item.href) router.push(item.href) }} style={{
+          <div key={item.label} onClick={() => { 
+            if ('href' in item && item.href) router.push(item.href)
+            if ('action' in item && item.action) item.action()
+          }} style={{
             display: 'flex', alignItems: 'center', gap: '12px',
             padding: '14px 16px', cursor: 'pointer',
             borderBottom: idx < MENU_ITEMS.length - 1 ? '1px solid #f1f5f9' : 'none',
@@ -626,6 +673,42 @@ export default function MyPage() {
           </div>
         ))}
       </div>
+
+      {/* Legal Modal */}
+      {legalModal.show && (
+        <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 1000, padding: '20px'
+        }}>
+            <div style={{
+                backgroundColor: 'white', borderRadius: '16px', width: '100%', maxWidth: '400px',
+                maxHeight: '80vh', display: 'flex', flexDirection: 'column'
+            }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{legalModal.title}</h3>
+                    <button onClick={() => setLegalModal({ ...legalModal, show: false })} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+                </div>
+                <div style={{ padding: '20px', overflowY: 'auto', fontSize: '13px', lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#334155' }}>
+                    {legalModal.content}
+                    {legalModal.title === '마케팅 정보 수신 동의' && (
+                        <div style={{ marginTop: '16px', padding: '12px', background: '#f8fafc', borderRadius: '8px', fontSize: '12px', color: '#64748b' }}>
+                            동의 상태: {profile?.marketing_agreed ? '동의함' : '동의하지 않음'}
+                            {profile?.marketing_agreed_at && ` (${formatDate(new Date(profile.marketing_agreed_at))})`}
+                        </div>
+                    )}
+                </div>
+                <div style={{ padding: '16px', borderTop: '1px solid #f1f5f9' }}>
+                    <button 
+                        onClick={() => setLegalModal({ ...legalModal, show: false })}
+                        style={{ width: '100%', padding: '12px', backgroundColor: accentColor, color: 'white', border: 'none', borderRadius: '10px', fontWeight: 700, cursor: 'pointer' }}
+                    >
+                        닫기
+                    </button>
+                </div>
+            </div>
+        </div>
+      )}
       </>
       )}
 

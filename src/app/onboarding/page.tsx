@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { createClient } from '@/lib/supabase'
 import { processInviteReward } from '@/lib/pointUtils'
+import { TERMS_OF_SERVICE, PRIVACY_POLICY, MARKETING_CONSENT } from '@/constants/legal'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 
 export default function OnboardingPage() {
@@ -25,7 +26,10 @@ export default function OnboardingPage() {
     const [saving, setSaving] = useState(false)
     const [authError, setAuthError] = useState('')
     const [inviteCode, setInviteCode] = useState('')
-    const [agreedPrivacy, setAgreedPrivacy] = useState(false)
+    const [agreeTerms, setAgreeTerms] = useState(false)
+    const [agreePrivacy, setAgreePrivacy] = useState(false)
+    const [agreeMarketing, setAgreeMarketing] = useState(false)
+    const [legalModal, setLegalModal] = useState<{ show: boolean, title: string, content: string }>({ show: false, title: '', content: '' })
 
     // Splash timer
     useEffect(() => {
@@ -132,7 +136,8 @@ export default function OnboardingPage() {
 
     const handleSave = async () => {
         if (!name.trim()) { alert('이름을 입력해주세요'); return }
-        if (!agreedPrivacy) { alert('개인정보 처리방침에 동의해주세요'); return }
+        if (!agreeTerms) { alert('이용약관에 동의해주세요'); return }
+        if (!agreePrivacy) { alert('개인정보 처리방침에 동의해주세요'); return }
         setSaving(true)
 
         try {
@@ -149,6 +154,9 @@ export default function OnboardingPage() {
                     nickname_updated_at: nickname.trim() ? new Date().toISOString() : null,
                     privacy_policy_agreed: true,
                     privacy_policy_agreed_at: new Date().toISOString(),
+                    terms_agreed: true,
+                    marketing_agreed: agreeMarketing,
+                    marketing_agreed_at: agreeMarketing ? new Date().toISOString() : null,
                     user_type: userType,
                     relationship: userType !== 'soldier' ? relationship : null,
                 })
@@ -632,43 +640,89 @@ export default function OnboardingPage() {
                             </div>
                         )}
 
-                        {/* 개인정보 동의 */}
-                        <div 
-                            onClick={() => setAgreedPrivacy(!agreedPrivacy)}
-                            style={{
-                                display: 'flex', alignItems: 'center', gap: '10px',
-                                padding: '12px', borderRadius: '12px', background: '#f8fafc',
-                                border: `1.5px solid ${agreedPrivacy ? accentColor : '#e5e7eb'}`,
-                                cursor: 'pointer', marginBottom: '20px', transition: 'all 0.2s',
-                            }}
-                        >
-                            <div style={{
-                                width: '20px', height: '20px', borderRadius: '4px',
-                                border: `2px solid ${agreedPrivacy ? accentColor : '#cbd5e1'}`,
-                                background: agreedPrivacy ? accentColor : '#fff',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                color: '#fff', fontSize: '14px',
-                            }}>
-                                {agreedPrivacy && '✓'}
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>개인정보 처리방침 동의 (필수)</div>
-                                <div style={{ fontSize: '11px', color: '#64748b' }}>서비스 이용을 위해 개인정보 수집 및 이용에 동의합니다</div>
+                        {/* 약관 및 동의 섹션 */}
+                        <div style={{ padding: '16px', backgroundColor: '#f8fafc', borderRadius: '12px', marginBottom: '24px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="terms" 
+                                        checked={agreeTerms} 
+                                        onChange={(e) => setAgreeTerms(e.target.checked)}
+                                    />
+                                    <label htmlFor="terms" style={{ fontSize: '13px', flex: 1, cursor: 'pointer', fontWeight: 600 }}>이용약관 동의 (필수)</label>
+                                    <button onClick={() => setLegalModal({ show: true, title: '이용약관', content: TERMS_OF_SERVICE })} style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="privacy" 
+                                        checked={agreePrivacy} 
+                                        onChange={(e) => setAgreePrivacy(e.target.checked)}
+                                    />
+                                    <label htmlFor="privacy" style={{ fontSize: '13px', flex: 1, cursor: 'pointer', fontWeight: 600 }}>개인정보 처리방침 동의 (필수)</label>
+                                    <button onClick={() => setLegalModal({ show: true, title: '개인정보 처리방침', content: PRIVACY_POLICY })} style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                    <input 
+                                        type="checkbox" 
+                                        id="marketing" 
+                                        checked={agreeMarketing} 
+                                        onChange={(e) => setAgreeMarketing(e.target.checked)}
+                                    />
+                                    <label htmlFor="marketing" style={{ fontSize: '13px', flex: 1, cursor: 'pointer', fontWeight: 600 }}>혜택 및 광고 메세지 수신 동의 (선택)</label>
+                                    <button onClick={() => setLegalModal({ show: true, title: '마케팅 정보 수신 동의', content: MARKETING_CONSENT })} style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
+                                </div>
                             </div>
                         </div>
 
                         {/* 저장 버튼 */}
-                        <button onClick={handleSave} disabled={saving} style={{
-                            width: '100%', padding: '14px', borderRadius: '12px',
-                            border: 'none', background: accentColor,
-                            color: '#fff', fontSize: '15px', fontWeight: 700, cursor: 'pointer',
-                            boxShadow: `0 4px 14px ${accentColor}40`,
-                            opacity: saving ? 0.6 : 1,
-                        }}>
+                        <button 
+                            onClick={handleSave} 
+                            disabled={saving || !name || !nickname || !agreeTerms || !agreePrivacy} 
+                            style={{
+                                width: '100%', padding: '16px', borderRadius: '12px',
+                                border: 'none', background: (saving || !name || !nickname || !agreeTerms || !agreePrivacy) ? '#cbd5e1' : accentColor,
+                                color: '#fff', fontSize: '16px', fontWeight: 700, 
+                                cursor: (saving || !name || !nickname || !agreeTerms || !agreePrivacy) ? 'not-allowed' : 'pointer',
+                                boxShadow: (saving || !name || !nickname || !agreeTerms || !agreePrivacy) ? 'none' : `0 4px 14px ${accentColor}40`,
+                                transition: 'all 0.2s',
+                            }}
+                        >
                             {saving ? '저장 중...' : '시작하기'}
                         </button>
                     </>
                 )}
+            </div>
+        )}
+
+        {/* Legal Modal */}
+        {legalModal.show && (
+            <div style={{
+                position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+                backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 1000, padding: '20px'
+            }}>
+                <div style={{
+                    backgroundColor: 'white', borderRadius: '16px', width: '100%', maxWidth: '500px',
+                    maxHeight: '80vh', display: 'flex', flexDirection: 'column'
+                }}>
+                    <div style={{ padding: '20px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <h3 style={{ margin: 0, fontSize: '18px' }}>{legalModal.title}</h3>
+                        <button onClick={() => setLegalModal({ ...legalModal, show: false })} style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer' }}>✕</button>
+                    </div>
+                    <div style={{ padding: '20px', overflowY: 'auto', fontSize: '14px', lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#334155' }}>
+                        {legalModal.content}
+                    </div>
+                    <div style={{ padding: '20px', borderTop: '1px solid #f1f5f9' }}>
+                        <button 
+                            onClick={() => setLegalModal({ ...legalModal, show: false })}
+                            style={{ width: '100%', padding: '12px', backgroundColor: accentColor, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 600, cursor: 'pointer' }}
+                        >
+                            확인
+                        </button>
+                    </div>
+                </div>
             </div>
         )}
         </div>

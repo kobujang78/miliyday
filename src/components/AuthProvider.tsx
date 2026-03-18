@@ -15,6 +15,9 @@ export interface MiliProfile {
     nickname_updated_at: string | null
     points: number
     privacy_policy_agreed: boolean
+    terms_agreed: boolean
+    marketing_agreed: boolean
+    marketing_agreed_at: string | null
     user_type: string
     relationship: string | null
 }
@@ -60,7 +63,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const fetchProfile = useCallback(async (userId: string) => {
         const { data } = await supabase
             .from('profiles')
-            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, user_type, relationship')
+            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, terms_agreed, marketing_agreed, marketing_agreed_at, user_type, relationship')
             .eq('id', userId)
             .single()
         if (data) setProfile(data as MiliProfile)
@@ -88,7 +91,10 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                             branch: p.branch || 'army', rank_level: p.rank || 1,
                             enlist_date: p.enlistDate || null, nickname: p.name || null,
                             avatar_url: null, nickname_updated_at: null, points: 0,
-                            privacy_policy_agreed: true, // Guest is considered onboarded
+                            privacy_policy_agreed: true,
+                            terms_agreed: true,
+                            marketing_agreed: false,
+                            marketing_agreed_at: null,
                             user_type: 'soldier', relationship: null,
                         })
                     }

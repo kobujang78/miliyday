@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { earnContentReward } from '@/lib/pointUtils'
-import RankIcon, { type Branch, type RankLevel } from '@/components/RankIcon'
+import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 
 interface Comment {
   id: string
@@ -73,7 +73,7 @@ export default function MilitaryBoardPage() {
     const supabase = createClient()
     const { data: postsData, error } = await supabase
       .from('posts')
-      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
+      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
       .eq('board_type', 'military_board')
       .order('created_at', { ascending: false })
 
@@ -168,7 +168,7 @@ export default function MilitaryBoardPage() {
         likes_count: 0,
         comments_count: 0,
       })
-      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
+      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
       .single()
 
     if (!error && data) {
@@ -261,7 +261,7 @@ export default function MilitaryBoardPage() {
       const supabase = createClient()
       const { data } = await supabase
         .from('comments')
-        .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
+        .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
         .eq('post_id', post.id)
         .order('created_at', { ascending: true })
 
@@ -280,7 +280,7 @@ export default function MilitaryBoardPage() {
     const { data } = await supabase
       .from('comments')
       .insert({ post_id: post.id, user_id: user.id, body: txt })
-      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch, user_type)')
+      .select('*, profiles:user_id(nickname, display_name, avatar_url, rank_level, branch)')
       .single()
 
     if (data) {
@@ -356,22 +356,19 @@ export default function MilitaryBoardPage() {
                 {/* 헤더 */}
                 <div style={{ padding: '16px 16px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{
-                    width: '32px', height: '32px', borderRadius: '50%',
+                    width: '36px', height: '36px', borderRadius: '50%',
                     background: p.profiles?.avatar_url ? `url(${p.profiles.avatar_url}) center/cover` : '#e2e8f0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '16px'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}>
-                    {p.profiles?.avatar_url ? null : (
-                      p.profiles?.user_type === 'soldier' ? <RankIcon level={p.profiles?.rank_level || 1} branch={p.profiles?.branch || 'army'} size={20} /> :
-                      p.profiles?.user_type === 'girlfriend' ? '💝' :
-                      p.profiles?.user_type === 'family' ? '🏠' :
-                      p.profiles?.user_type === 'friend' ? '🤝' : '👤'
-                    )}
+                    {!p.profiles?.avatar_url && <RankIcon level={p.profiles?.rank_level || 1} branch={p.profiles?.branch || 'army'} size={24} />}
                   </div>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                      {authorName}
-                      {(p.profiles?.nickname === '관리자' || p.profiles?.display_name === '관리자') && (
-                        <span style={{ fontSize: '10px', background: '#3b82f6', color: '#fff', padding: '1px 4px', borderRadius: '4px' }}>ADMIN</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{authorName}</div>
+                      {p.profiles?.branch && (
+                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
+                          ({BRANCHES.find(b => b.value === p.profiles.branch)?.label} · {RANKS.find(r => r.value === p.profiles.rank_level)?.label})
+                        </div>
                       )}
                     </div>
                     <div style={{ fontSize: '11px', color: '#9ca3af' }}>{formatTimeAgo(p.created_at)}</div>
@@ -484,24 +481,16 @@ export default function MilitaryBoardPage() {
                     {p.commentsList?.map(c => (
                       <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                         <div style={{
-                          width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
                           background: c.profiles?.avatar_url ? `url(${c.profiles.avatar_url}) center/cover` : '#e2e8f0',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px'
+                          display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
-                          {c.profiles?.avatar_url ? null : (
-                            c.profiles?.user_type === 'soldier' ? <RankIcon level={c.profiles?.rank_level || 1} branch={c.profiles?.branch || 'army'} size={14} /> :
-                            c.profiles?.user_type === 'girlfriend' ? '💝' :
-                            c.profiles?.user_type === 'family' ? '🏠' :
-                            c.profiles?.user_type === 'friend' ? '🤝' : '👤'
-                          )}
+                          {!c.profiles?.avatar_url && <RankIcon level={c.profiles?.rank_level || 1} branch={c.profiles?.branch || 'army'} size={18} />}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>
                             <span style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
                               {c.profiles?.nickname || c.profiles?.display_name || '사용자'}
-                              {(c.profiles?.nickname === '관리자' || c.profiles?.display_name === '관리자') && (
-                                <span style={{ fontSize: '9px', background: '#3b82f6', color: '#fff', padding: '0 3px', borderRadius: '3px', marginLeft: '3px' }}>ADMIN</span>
-                              )}
                             </span>
                             <span style={{ fontSize: '10px', color: '#9ca3af' }}>{formatTimeAgo(c.created_at)}</span>
                           </div>

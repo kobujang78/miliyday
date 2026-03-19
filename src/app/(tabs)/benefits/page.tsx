@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { earnContentReward } from '@/lib/pointUtils'
-import RankIcon, { type Branch, type RankLevel } from '@/components/RankIcon'
+import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 
 interface Comment {
   id: string
@@ -354,14 +354,21 @@ export default function BenefitsPage() {
                 {/* 헤더 */}
                 <div style={{ padding: '16px 16px 12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <div style={{
-                    width: '32px', height: '32px', borderRadius: '50%',
+                    width: '36px', height: '36px', borderRadius: '50%',
                     background: p.profiles?.avatar_url ? `url(${p.profiles.avatar_url}) center/cover` : '#e2e8f0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}>
-                    {!p.profiles?.avatar_url && <RankIcon level={p.profiles?.rank_level || 1} branch={p.profiles?.branch || 'army'} size={20} />}
+                    {!p.profiles?.avatar_url && <RankIcon level={p.profiles?.rank_level || 1} branch={p.profiles?.branch || 'army'} size={24} />}
                   </div>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{authorName}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{authorName}</div>
+                      {p.profiles?.branch && (
+                        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
+                          ({BRANCHES.find(b => b.value === p.profiles.branch)?.label} · {RANKS.find(r => r.value === p.profiles.rank_level)?.label})
+                        </div>
+                      )}
+                    </div>
                     <div style={{ fontSize: '11px', color: '#9ca3af' }}>{formatTimeAgo(p.created_at)}</div>
                   </div>
                   {p.category && (
@@ -471,11 +478,11 @@ export default function BenefitsPage() {
                     {p.commentsList?.map(c => (
                       <div key={c.id} style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
                         <div style={{
-                          width: '24px', height: '24px', borderRadius: '50%', flexShrink: 0,
+                          width: '28px', height: '28px', borderRadius: '50%', flexShrink: 0,
                           background: c.profiles?.avatar_url ? `url(${c.profiles.avatar_url}) center/cover` : '#e2e8f0',
                           display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
-                          {!c.profiles?.avatar_url && <RankIcon level={c.profiles?.rank_level || 1} branch={c.profiles?.branch || 'army'} size={14} />}
+                          {!c.profiles?.avatar_url && <RankIcon level={c.profiles?.rank_level || 1} branch={c.profiles?.branch || 'army'} size={18} />}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>

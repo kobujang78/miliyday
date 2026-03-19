@@ -136,7 +136,8 @@ export default function OnboardingPage() {
 
     const handleSave = async () => {
         if (!name.trim()) { alert('이름을 입력해주세요'); return }
-        if (nickname.trim() === '관리자') { alert('"관리자" 닉네임은 사용할 수 없습니다.'); return }
+        const finalNickname = nickname.trim() || name.trim();
+        if (finalNickname === '관리자') { alert('사용할 수 없는 닉네임입니다.'); return }
         if (!agreeTerms) { alert('이용약관에 동의해주세요'); return }
         if (!agreePrivacy) { alert('개인정보 처리방침에 동의해주세요'); return }
         setSaving(true)
@@ -174,7 +175,7 @@ export default function OnboardingPage() {
                     id: user.id,
                     email: user.email || '',
                     display_name: name.trim(),
-                    nickname: nickname.trim() || name.trim(),
+                    nickname: finalNickname,
                     branch: userType === 'soldier' ? branch : null,
                     rank_level: userType === 'soldier' ? rank : 1,
                     enlist_date: userType === 'soldier' ? (enlistDate || null) : null,
@@ -679,7 +680,7 @@ export default function OnboardingPage() {
                                             onChange={(e) => setAgreeTerms(e.target.checked)}
                                         />
                                         <label htmlFor="terms" style={{ fontSize: '13px', flex: 1, cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>이용약관 동의 (필수)</label>
-                                        <button onClick={() => setLegalModal({ show: true, title: '이용약관', content: TERMS_OF_SERVICE })} style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
+                                        <button onClick={() => setLegalModal({ show: true, title: '이용약관', content: TERMS_OF_SERVICE })} style={{ fontSize: '11px', color: '#0f172a', fontWeight: 600, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <input
@@ -689,7 +690,7 @@ export default function OnboardingPage() {
                                             onChange={(e) => setAgreePrivacy(e.target.checked)}
                                         />
                                         <label htmlFor="privacy" style={{ fontSize: '13px', flex: 1, cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>개인정보 처리방침 동의 (필수)</label>
-                                        <button onClick={() => setLegalModal({ show: true, title: '개인정보 처리방침', content: PRIVACY_POLICY })} style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
+                                        <button onClick={() => setLegalModal({ show: true, title: '개인정보 처리방침', content: PRIVACY_POLICY })} style={{ fontSize: '11px', color: '#0f172a', fontWeight: 600, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                                         <input
@@ -699,7 +700,7 @@ export default function OnboardingPage() {
                                             onChange={(e) => setAgreeMarketing(e.target.checked)}
                                         />
                                         <label htmlFor="marketing" style={{ fontSize: '13px', flex: 1, cursor: 'pointer', fontWeight: 600, color: '#0f172a' }}>혜택 및 광고 메세지 수신 동의 (선택)</label>
-                                        <button onClick={() => setLegalModal({ show: true, title: '마케팅 정보 수신 동의', content: MARKETING_CONSENT })} style={{ fontSize: '11px', color: '#64748b', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
+                                        <button onClick={() => setLegalModal({ show: true, title: '마케팅 정보 수신 동의', content: MARKETING_CONSENT })} style={{ fontSize: '11px', color: '#0f172a', fontWeight: 600, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}>보기</button>
                                     </div>
                                 </div>
                             </div>

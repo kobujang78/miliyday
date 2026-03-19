@@ -89,15 +89,16 @@ export default function MyPage() {
     }
     // 닉네임 변경 체크 (30일 제한)
     if (editNickname !== nickname) {
+      const trimmedNickname = editNickname.trim();
+      if (trimmedNickname === '관리자') {
+        alert('사용할 수 없는 닉네임입니다.');
+        return;
+      }
       if (!canEditNickname) {
         alert(`닉네임은 ${daysUntilNicknameEdit}일 후에 변경할 수 있습니다.`)
         return
       }
-      if (editNickname.trim() === '관리자') {
-        alert('"관리자" 닉네임은 사용할 수 없습니다.')
-        return
-      }
-      updates.nickname = editNickname.trim() || editName
+      updates.nickname = trimmedNickname || editName
       updates.nickname_updated_at = new Date().toISOString()
     }
     updateProfile(updates)

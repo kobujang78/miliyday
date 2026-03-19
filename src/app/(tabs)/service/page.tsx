@@ -1,3 +1,4 @@
+"use client"
 import React, { useMemo } from 'react'
 import { useAuth } from '@/components/AuthProvider'
 import { SERVICE_MONTHS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'

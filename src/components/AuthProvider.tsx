@@ -21,6 +21,7 @@ export interface MiliProfile {
     user_type: string
     relationship: string | null
     connected_soldier_id: string | null
+    invite_code: string | null
 }
 
 interface AuthContextType {
@@ -68,7 +69,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const fetchProfile = useCallback(async (userId: string) => {
         const { data } = await supabase
             .from('profiles')
-            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, terms_agreed, marketing_agreed, marketing_agreed_at, user_type, relationship, connected_soldier_id')
+            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, terms_agreed, marketing_agreed, marketing_agreed_at, user_type, relationship, connected_soldier_id, invite_code')
             .eq('id', userId)
             .single()
         if (data) setProfile(data as MiliProfile)
@@ -118,6 +119,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                             marketing_agreed_at: null,
                             user_type: 'soldier', relationship: null,
                             connected_soldier_id: null,
+                            invite_code: p.inviteCode || null,
                         })
                     }
                 } catch { }

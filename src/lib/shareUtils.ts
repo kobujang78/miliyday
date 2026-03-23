@@ -101,24 +101,56 @@ export async function addPost(post: {
   }
 }
 
-// Toggle like (increment)
-export async function toggleLike(postId: string): Promise<boolean> {
+// Toggle like (with localStorage-based duplicate prevention)
+export async function toggleLike(postId: string, userId: string): Promise<{ liked: boolean; newCount: number }> {
   const supabase = createClient()
-  // Use RPC or simple increment
+  const storageKey = `feed_likes_${userId}`
+  
+  // Get liked posts from localStorage
+  let likedPosts: string[] = []
+  try {
+    likedPosts = JSON.parse(localStorage.getItem(storageKey) || '[]')
+  } catch { likedPosts = [] }
+
+  const alreadyLiked = likedPosts.includes(postId)
+  
+  // Get current count
   const { data: post } = await supabase
     .from('feed_posts')
     .select('likes')
     .eq('id', postId)
     .single()
 
-  if (!post) return false
+  if (!post) return { liked: false, newCount: 0 }
+
+  const newCount = alreadyLiked 
+    ? Math.max(0, post.likes - 1) 
+    : post.likes + 1
 
   const { error } = await supabase
     .from('feed_posts')
-    .update({ likes: post.likes + 1 })
+    .update({ likes: newCount })
     .eq('id', postId)
 
-  return !error
+  if (error) return { liked: alreadyLiked, newCount: post.likes }
+
+  // Update localStorage
+  if (alreadyLiked) {
+    likedPosts = likedPosts.filter(id => id !== postId)
+  } else {
+    likedPosts.push(postId)
+  }
+  localStorage.setItem(storageKey, JSON.stringify(likedPosts))
+
+  return { liked: !alreadyLiked, newCount }
+}
+
+// Check if user has liked a post
+export function isPostLiked(postId: string, userId: string): boolean {
+  try {
+    const likedPosts = JSON.parse(localStorage.getItem(`feed_likes_${userId}`) || '[]')
+    return likedPosts.includes(postId)
+  } catch { return false }
 }
 
 // Delete a feed post

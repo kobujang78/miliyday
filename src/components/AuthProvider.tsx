@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import { getPendingRequestCount } from '@/lib/connectionUtils'
 
 export interface MiliProfile {
     id: string
@@ -39,6 +40,8 @@ interface AuthContextType {
     refreshProfile: () => Promise<void>
     updateProfile: (updates: Partial<MiliProfile> | { rankOverride: number | null }) => void
     connectedSoldier: Partial<MiliProfile> | null
+    pendingRequests: number
+    refreshPendingRequests: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -53,6 +56,8 @@ const AuthContext = createContext<AuthContextType>({
     refreshProfile: async () => { },
     updateProfile: () => { },
     connectedSoldier: null,
+    pendingRequests: 0,
+    refreshPendingRequests: async () => { },
 })
 
 export const useAuth = () => useContext(AuthContext)
@@ -63,6 +68,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const [connectedSoldier, setConnectedSoldier] = useState<Partial<MiliProfile> | null>(null)
     const [loading, setLoading] = useState(true)
     const [isGuest, setIsGuest] = useState(false)
+    const [pendingRequests, setPendingRequests] = useState(0)
 
     const supabase = createClient()
 
@@ -95,6 +101,20 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const refreshProfile = useCallback(async () => {
         if (user) await fetchProfile(user.id)
     }, [user, fetchProfile])
+
+    const refreshPendingRequests = useCallback(async () => {
+        if (user && profile?.user_type === 'soldier') {
+            const count = await getPendingRequestCount(user.id)
+            setPendingRequests(count)
+        } else {
+            setPendingRequests(0)
+        }
+    }, [user, profile?.user_type])
+
+    // Fetch pending requests when profile loads/changes
+    useEffect(() => {
+        refreshPendingRequests()
+    }, [refreshPendingRequests])
 
     useEffect(() => {
         let authSubscription: any = null
@@ -246,7 +266,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         <AuthContext.Provider value={{
             user, profile, loading, isGuest, connectedSoldier,
             signInWithGoogle, signInWithOAuth, signInWithEmail, signUpWithEmail, signOut, deleteAccount, setGuestMode, refreshProfile,
-            updateProfile,
+            updateProfile, pendingRequests, refreshPendingRequests,
         }}>
             {children}
         </AuthContext.Provider>

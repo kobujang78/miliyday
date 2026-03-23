@@ -9,7 +9,7 @@ import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
     const router = useRouter()
-    const { user, profile, loading, isGuest } = useAuth()
+    const { user, profile, loading, isGuest, pendingRequests } = useAuth()
     const [checked, setChecked] = useState(false)
 
     const isOnboarding = pathname === '/onboarding'
@@ -94,6 +94,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         background: `${branchColor}0a`, borderRadius: '20px',
                         border: `1px solid ${branchColor}18`,
                         cursor: 'pointer',
+                        position: 'relative',
                     }}>
                         {headerProfile.avatar_url ? (
                             // eslint-disable-next-line @next/next/no-img-element
@@ -114,6 +115,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                                 : `${headerProfile.typeLabel} ${headerProfile.name}`
                             )}
                         </span>
+                        {pendingRequests > 0 && (
+                            <span style={{
+                                position: 'absolute', top: '-4px', right: '-4px',
+                                width: '18px', height: '18px', borderRadius: '50%',
+                                background: '#ef4444', color: '#fff',
+                                fontSize: '10px', fontWeight: 800,
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                border: '2px solid #fff',
+                            }}>{pendingRequests > 9 ? '9+' : pendingRequests}</span>
+                        )}
                     </div>
                 ) : (
                     <button

@@ -4,6 +4,12 @@ import RankIcon, { RANKS, BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel 
 import { calcAutoRank, RANK_LABELS, getPromotionDates } from '@/lib/rankUtils'
 import { getPoints, getMyInviteCode, getInviteStats } from '@/lib/pointUtils'
 import { createClient } from '@/lib/supabase'
+import {
+  searchSoldierByNickname, sendConnectionRequest,
+  getReceivedRequests, getSentRequests, getConnectedUsers,
+  acceptConnectionRequest, rejectConnectionRequest, disconnectSoldier,
+  type ConnectionRequest, type SoldierSearchResult
+} from '@/lib/connectionUtils'
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
@@ -20,7 +26,7 @@ export default function MyPage() {
   const [showWithdrawalModal, setShowWithdrawalModal] = useState(false)
   const [withdrawalStep, setWithdrawalStep] = useState(1)
   const [withdrawalReason, setWithdrawalReason] = useState('')
-  const { user, profile, signOut, updateProfile, deleteAccount, isGuest, connectedSoldier } = useAuth()
+  const { user, profile, signOut, updateProfile, deleteAccount, isGuest, connectedSoldier, refreshProfile, refreshPendingRequests } = useAuth()
   const isSoldier = profile?.user_type === 'soldier'
   const [myPoints, setMyPoints] = useState(0)
   const [myInviteCode, setMyInviteCode] = useState('')
@@ -31,6 +37,17 @@ export default function MyPage() {
   const [bookmarkedPosts, setBookmarkedPosts] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<'info' | 'myPosts' | 'bookmarks'>('info')
   const [legalModal, setLegalModal] = useState<{ show: boolean, title: string, content: string }>({ show: false, title: '', content: '' })
+
+  // --- Connection state ---
+  const [searchNickname, setSearchNickname] = useState('')
+  const [searchResults, setSearchResults] = useState<SoldierSearchResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [searchDone, setSearchDone] = useState(false)
+  const [requestMessage, setRequestMessage] = useState('')
+  const [sendingRequest, setSendingRequest] = useState(false)
+  const [receivedRequests, setReceivedRequests] = useState<ConnectionRequest[]>([])
+  const [sentRequests, setSentRequests] = useState<ConnectionRequest[]>([])
+  const [connectedUsers, setConnectedUsers] = useState<Array<{ id: string, nickname: string | null, display_name: string | null, avatar_url: string | null, user_type: string, relationship: string | null }>>([]);
 
   // Editing state for profile
   const [editName, setEditName] = useState('')
@@ -242,6 +259,94 @@ export default function MyPage() {
     fetchMyPostsData()
   }, [user])
 
+  // Load connection data
+  useEffect(() => {
+    if (!user) return
+    const loadConnectionData = async () => {
+      if (isSoldier) {
+        const [reqs, connected] = await Promise.all([
+          getReceivedRequests(user.id),
+          getConnectedUsers(user.id),
+        ])
+        setReceivedRequests(reqs)
+        setConnectedUsers(connected)
+      } else {
+        const sent = await getSentRequests(user.id)
+        setSentRequests(sent)
+      }
+    }
+    loadConnectionData()
+  }, [user, isSoldier])
+
+  // Connection handlers
+  const handleSearchSoldier = async () => {
+    if (!searchNickname.trim()) return
+    setSearching(true)
+    setSearchDone(false)
+    const results = await searchSoldierByNickname(searchNickname)
+    // Filter out self
+    setSearchResults(results.filter(r => r.id !== user?.id))
+    setSearching(false)
+    setSearchDone(true)
+  }
+
+  const handleSendRequest = async (soldierId: string) => {
+    if (!user) return
+    setSendingRequest(true)
+    const result = await sendConnectionRequest(user.id, soldierId, requestMessage)
+    if (result.success) {
+      alert('🎖️ 연동 신청을 보냈습니다! 용사가 수락하면 연동됩니다.')
+      setSearchResults([])
+      setSearchNickname('')
+      setRequestMessage('')
+      setSearchDone(false)
+      // Refresh sent requests
+      const sent = await getSentRequests(user.id)
+      setSentRequests(sent)
+    } else {
+      alert(result.error || '신청 중 오류가 발생했습니다.')
+    }
+    setSendingRequest(false)
+  }
+
+  const handleAcceptRequest = async (requestId: string) => {
+    if (!user) return
+    const result = await acceptConnectionRequest(requestId, user.id)
+    if (result.success) {
+      alert('✅ 연동을 수락했습니다!')
+      setReceivedRequests(prev => prev.filter(r => r.id !== requestId))
+      const connected = await getConnectedUsers(user.id)
+      setConnectedUsers(connected)
+      await refreshPendingRequests()
+    } else {
+      alert(result.error || '수락 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleRejectRequest = async (requestId: string) => {
+    if (!user) return
+    if (!confirm('연동 신청을 거절하시겠습니까?')) return
+    const result = await rejectConnectionRequest(requestId, user.id)
+    if (result.success) {
+      setReceivedRequests(prev => prev.filter(r => r.id !== requestId))
+      await refreshPendingRequests()
+    } else {
+      alert(result.error || '거절 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleDisconnect = async () => {
+    if (!user) return
+    if (!confirm('연동을 해제하시겠습니까? 복무현황/휴가 정보 공유가 중단됩니다.')) return
+    const result = await disconnectSoldier(user.id)
+    if (result.success) {
+      await refreshProfile()
+      alert('연동이 해제되었습니다.')
+    } else {
+      alert(result.error || '해제 중 오류가 발생했습니다.')
+    }
+  }
+
   const handleCopyInviteCode = async () => {
     if (!myInviteCode) return
     try {
@@ -338,8 +443,17 @@ export default function MyPage() {
           </div>
           <input ref={avatarInputRef} type="file" accept="image/*" onChange={handleAvatarChange} style={{ display: 'none' }} />
           <div>
-            <div style={{ fontSize: '18px', fontWeight: 800 }}>
-              {displayName || '이름을 입력하세요'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ fontSize: '18px', fontWeight: 800 }}>
+                {displayName || '이름을 입력하세요'}
+              </div>
+              <span style={{
+                fontSize: '10px', fontWeight: 700,
+                padding: '2px 8px', borderRadius: '8px',
+                background: 'rgba(255,255,255,0.2)', color: '#fff',
+              }}>
+                {isSoldier ? '🎖️ 현역병' : profile?.user_type === 'girlfriend' ? '💝 여자친구' : profile?.user_type === 'family' ? '🏠 가족' : '🤝 친구'}
+              </span>
             </div>
             {nickname && name && nickname !== name && (
               <div style={{ fontSize: '11px', opacity: 0.7 }}>{name}</div>
@@ -383,11 +497,18 @@ export default function MyPage() {
                 {connectedSoldier.nickname || connectedSoldier.display_name}
               </div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '10px', opacity: 0.7 }}>군종/계급</div>
-              <div style={{ fontSize: '12px', fontWeight: 700 }}>
-                {BRANCHES.find(b => b.value === connectedSoldier.branch)?.label} · {RANK_LABELS[connectedSoldier.rank_level as RankLevel]}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: '10px', opacity: 0.7 }}>군종/계급</div>
+                <div style={{ fontSize: '12px', fontWeight: 700 }}>
+                  {BRANCHES.find(b => b.value === connectedSoldier.branch)?.label} · {RANK_LABELS[connectedSoldier.rank_level as RankLevel]}
+                </div>
               </div>
+              <button onClick={handleDisconnect} style={{
+                border: 'none', background: 'rgba(255,255,255,0.2)',
+                color: '#fff', fontSize: '10px', fontWeight: 700,
+                padding: '4px 8px', borderRadius: '8px', cursor: 'pointer',
+              }}>해제</button>
             </div>
           </div>
         ) : (
@@ -605,7 +726,260 @@ export default function MyPage() {
 
       {activeTab === 'info' && (
         <>
-          {/* 밀포인트 & 초대 */}
+          {/* ── 연동 관리 카드 (현역병) ── */}
+          {isSoldier && (
+            <div style={{
+              background: '#fff', borderRadius: '16px', padding: '20px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+            }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#0f172a', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📬 연동 관리
+                {receivedRequests.length > 0 && (
+                  <span style={{ background: '#ef4444', color: '#fff', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '10px' }}>
+                    {receivedRequests.length}건
+                  </span>
+                )}
+              </h3>
+
+              {/* 받은 신청 */}
+              {receivedRequests.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>📥 받은 연동 신청</div>
+                  {receivedRequests.map(req => (
+                    <div key={req.id} style={{
+                      padding: '14px', borderRadius: '14px', background: '#fef2f2',
+                      border: '1px solid #fee2e2',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                        <div style={{
+                          width: '36px', height: '36px', borderRadius: '50%',
+                          background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          overflow: 'hidden', fontSize: '18px',
+                        }}>
+                          {req.requester?.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={req.requester.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            req.requester?.user_type === 'girlfriend' ? '💝' :
+                            req.requester?.user_type === 'family' ? '🏠' : '🤝'
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                            {req.requester?.nickname || req.requester?.display_name || '사용자'}
+                          </div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>
+                            {req.requester?.relationship || req.requester?.user_type === 'girlfriend' ? '여자친구' : req.requester?.user_type === 'family' ? '가족' : '친구'}
+                          </div>
+                        </div>
+                      </div>
+                      {req.message && (
+                        <div style={{ fontSize: '12px', color: '#475569', marginBottom: '10px', padding: '8px', background: 'rgba(255,255,255,0.7)', borderRadius: '8px' }}>
+                          "{req.message}"
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleAcceptRequest(req.id)} style={{
+                          flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                          background: accentColor, color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                        }}>✅ 수락</button>
+                        <button onClick={() => handleRejectRequest(req.id)} style={{
+                          flex: 1, padding: '10px', borderRadius: '10px', border: 'none',
+                          background: '#f1f5f9', color: '#64748b', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                        }}>거절</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '12px', background: '#f8fafc', borderRadius: '12px', marginBottom: '16px' }}>
+                  받은 연동 신청이 없습니다
+                </div>
+              )}
+
+              {/* 연동된 지인 */}
+              {connectedUsers.length > 0 && (
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '8px' }}>🔗 연동된 지인</div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {connectedUsers.map(u => (
+                      <div key={u.id} style={{
+                        display: 'flex', alignItems: 'center', gap: '10px',
+                        padding: '10px 12px', borderRadius: '12px', background: '#f8fafc',
+                      }}>
+                        <div style={{
+                          width: '32px', height: '32px', borderRadius: '50%',
+                          background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          overflow: 'hidden', fontSize: '14px',
+                        }}>
+                          {u.avatar_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={u.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            u.user_type === 'girlfriend' ? '💝' :
+                            u.user_type === 'family' ? '🏠' : '🤝'
+                          )}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{u.nickname || u.display_name}</div>
+                          <div style={{ fontSize: '11px', color: '#64748b' }}>{u.relationship || (u.user_type === 'girlfriend' ? '여자친구' : u.user_type === 'family' ? '가족' : '친구')}</div>
+                        </div>
+                        <span style={{ fontSize: '10px', color: '#10b981', fontWeight: 700 }}>연동중</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── 연동 신청 카드 (비현역) ── */}
+          {!isSoldier && (
+            <div style={{
+              background: '#fff', borderRadius: '16px', padding: '20px',
+              boxShadow: '0 2px 10px rgba(0,0,0,0.04)',
+            }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>
+                🔍 용사 연동하기
+              </h3>
+
+              {connectedSoldier ? (
+                <div style={{
+                  padding: '14px', borderRadius: '14px',
+                  background: `linear-gradient(135deg, ${accentColor}10, ${accentColor}05)`,
+                  border: `1px solid ${accentColor}20`, marginBottom: '12px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <RankIcon level={connectedSoldier.rank_level as RankLevel} branch={connectedSoldier.branch as Branch} size={28} />
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                          {connectedSoldier.nickname || connectedSoldier.display_name}
+                        </div>
+                        <div style={{ fontSize: '11px', color: '#64748b' }}>
+                          {BRANCHES.find(b => b.value === connectedSoldier.branch)?.label} · {RANK_LABELS[connectedSoldier.rank_level as RankLevel]}
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '10px', color: '#10b981', fontWeight: 700, background: '#dcfce7', padding: '3px 8px', borderRadius: '8px' }}>연동중</span>
+                      <button onClick={handleDisconnect} style={{
+                        border: '1px solid #e2e8f0', background: '#fff',
+                        fontSize: '10px', fontWeight: 700, color: '#ef4444',
+                        padding: '4px 8px', borderRadius: '8px', cursor: 'pointer',
+                      }}>해제</button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* 검색 */}
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+                    <input
+                      type="text" placeholder="용사 닉네임을 입력하세요"
+                      value={searchNickname}
+                      onChange={e => setSearchNickname(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && handleSearchSoldier()}
+                      style={{
+                        flex: 1, padding: '10px 14px', borderRadius: '12px',
+                        border: '1.5px solid #e5e7eb', fontSize: '14px', outline: 'none',
+                        boxSizing: 'border-box',
+                      }}
+                    />
+                    <button onClick={handleSearchSoldier} disabled={searching || !searchNickname.trim()} style={{
+                      padding: '10px 16px', borderRadius: '12px', border: 'none',
+                      background: searching || !searchNickname.trim() ? '#e2e8f0' : accentColor,
+                      color: '#fff', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                    }}>{searching ? '검색 중...' : '검색'}</button>
+                  </div>
+
+                  {/* 검색 결과 */}
+                  {searchDone && searchResults.length === 0 && (
+                    <div style={{ fontSize: '13px', color: '#9ca3af', textAlign: 'center', padding: '16px', background: '#f8fafc', borderRadius: '12px', marginBottom: '12px' }}>
+                      검색 결과가 없습니다. 닉네임을 다시 확인해주세요.
+                    </div>
+                  )}
+                  {searchResults.length > 0 && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px' }}>
+                      {searchResults.map(soldier => (
+                        <div key={soldier.id} style={{
+                          display: 'flex', alignItems: 'center', gap: '10px',
+                          padding: '12px', borderRadius: '14px', background: '#f8fafc',
+                          border: '1px solid #e2e8f0',
+                        }}>
+                          <div style={{
+                            width: '36px', height: '36px', borderRadius: '50%',
+                            background: `${accentColor}10`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          }}>
+                            {soldier.avatar_url ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={soldier.avatar_url} alt="" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
+                            ) : (
+                              <RankIcon level={soldier.rank_level as RankLevel} branch={soldier.branch as Branch} size={22} />
+                            )}
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a' }}>
+                              {soldier.nickname || soldier.display_name}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#64748b' }}>
+                              {BRANCHES.find(b => b.value === soldier.branch)?.label} · {RANK_LABELS[soldier.rank_level as RankLevel]}
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => handleSendRequest(soldier.id)}
+                            disabled={sendingRequest}
+                            style={{
+                              padding: '8px 14px', borderRadius: '10px', border: 'none',
+                              background: sendingRequest ? '#e2e8f0' : '#3b82f6',
+                              color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer',
+                            }}
+                          >{sendingRequest ? '신청중...' : '연동 신청'}</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* 보낸 신청 내역 */}
+                  {sentRequests.length > 0 && (
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748b', marginBottom: '8px' }}>📤 보낸 신청</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {sentRequests.map(req => {
+                          const statusMap: Record<string, { label: string, color: string, bg: string }> = {
+                            pending: { label: '대기중', color: '#f59e0b', bg: '#fef3c7' },
+                            accepted: { label: '수락됨', color: '#10b981', bg: '#dcfce7' },
+                            rejected: { label: '거절됨', color: '#ef4444', bg: '#fee2e2' },
+                          }
+                          const st = statusMap[req.status] || statusMap.pending
+                          return (
+                            <div key={req.id} style={{
+                              display: 'flex', alignItems: 'center', gap: '10px',
+                              padding: '10px 12px', borderRadius: '12px', background: '#f8fafc',
+                            }}>
+                              <RankIcon level={(req.soldier?.rank_level || 1) as RankLevel} branch={(req.soldier?.branch || 'army') as Branch} size={22} />
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                                  {req.soldier?.nickname || req.soldier?.display_name || '용사'}
+                                </div>
+                              </div>
+                              <span style={{
+                                fontSize: '10px', fontWeight: 700, color: st.color,
+                                background: st.bg, padding: '3px 8px', borderRadius: '8px',
+                              }}>{st.label}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+
           <div style={{
             background: '#fff', borderRadius: '16px', padding: '20px',
             boxShadow: '0 2px 10px rgba(0,0,0,0.04)',

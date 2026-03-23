@@ -143,32 +143,6 @@ export default function OnboardingPage() {
         setSaving(true)
 
         try {
-            let connectedSoldierId = null
-
-            // For non-soldiers, try to link with a soldier via invite code
-            if (userType !== 'soldier' && inviteCode.trim()) {
-                const supabase = createClient()
-                const { data: soldierProfile, error: inviteError } = await supabase
-                    .from('profiles')
-                    .select('id, user_type')
-                    .eq('invite_code', inviteCode.trim().toUpperCase())
-                    .single()
-
-                if (inviteError || !soldierProfile) {
-                    alert('유효하지 않은 초대코드입니다. 다시 확인해주세요.')
-                    setSaving(false)
-                    return
-                }
-
-                if (soldierProfile.user_type !== 'soldier') {
-                    alert('해당 초대코드는 현역병의 코드가 아닙니다. 현역병의 초대코드만 연동이 가능합니다.')
-                    setSaving(false)
-                    return
-                }
-
-                connectedSoldierId = soldierProfile.id
-            }
-
             if (user) {
                 const supabase = createClient()
                 const { error } = await supabase.from('profiles').upsert({
@@ -187,7 +161,6 @@ export default function OnboardingPage() {
                     marketing_agreed_at: agreeMarketing ? new Date().toISOString() : null,
                     user_type: userType,
                     relationship: userType !== 'soldier' ? relationship : null,
-                    connected_soldier_id: connectedSoldierId,
                 })
                 if (error) {
                     console.error('Profile save error:', error)
@@ -634,11 +607,21 @@ export default function OnboardingPage() {
                                             }}>{rel}</button>
                                         ))}
                                     </div>
+                                    <div style={{
+                                        padding: '12px', borderRadius: '12px', background: '#eff6ff',
+                                        border: '1px solid #dbeafe', marginBottom: '16px',
+                                    }}>
+                                        <div style={{ fontSize: '12px', color: '#1e40af', fontWeight: 600, marginBottom: '4px' }}>💡 용사 연동 안내</div>
+                                        <div style={{ fontSize: '11px', color: '#3b82f6', lineHeight: 1.5 }}>
+                                            가입 후 마이페이지에서 용사의 닉네임으로 검색하여 연동 신청할 수 있습니다.
+                                            연동이 수락되면 복무현황과 휴가 정보를 함께 확인할 수 있어요!
+                                        </div>
+                                    </div>
                                 </>
                             )}
 
-                            {/* 초대코드 */}
-                            <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>초대코드 (선택)</label>
+                            {/* 초대코드 (포인트 적립 전용) */}
+                            <label style={{ fontSize: '12px', fontWeight: 600, color: '#6b7280', marginBottom: '6px', display: 'block' }}>초대코드 (선택, 포인트 적립용)</label>
                             <input
                                 type="text" placeholder="초대코드가 있다면 입력해주세요 (예: MILI-A3K9)"
                                 value={inviteCode}

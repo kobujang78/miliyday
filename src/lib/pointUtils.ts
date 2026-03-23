@@ -21,7 +21,7 @@ export async function getPoints(userId: string): Promise<number> {
   return data?.points ?? 0
 }
 
-// ── 포인트 적립 ──
+// ── 포인트 적립 (DB atomic increment) ──
 export async function addPoints(
   userId: string,
   amount: number,
@@ -43,13 +43,12 @@ export async function addPoints(
     })
   if (txError) { console.error('point tx error:', txError); return false }
 
-  // 2) 잔액 업데이트
-  const currentPoints = await getPoints(userId)
-  const { error: upError } = await supabase
-    .from('profiles')
-    .update({ points: currentPoints + amount })
-    .eq('id', userId)
-  if (upError) { console.error('point update error:', upError); return false }
+  // 2) 잔액 atomic increment (race condition 방지)
+  const { error: rpcError } = await supabase.rpc('add_points', {
+    p_user_id: userId,
+    p_amount: amount,
+  })
+  if (rpcError) { console.error('point rpc error:', rpcError); return false }
 
   return true
 }
@@ -175,39 +174,12 @@ export async function processInviteReward(
   // 3) 가입자 2,000P 적립
   await addPoints(inviteeId, POINT_AMOUNTS.SIGNUP_BONUS, 'signup_bonus', '초대코드 가입 보너스')
 
-  // 4) 초대자 1,000P 적립 — 여기는 inviter 소유이므로 RLS 우회를 위해 서비스 역할 필요
-  //    하지만 클라이언트에서는 invitee가 insert하므로 직접 profiles update는 불가
-  //    대안: point_transactions에만 기록하고, 초대자 잔액은 별도 계산
-  //    여기서는 서버리스 접근이 어려우므로, 초대자의 포인트도 직접 업데이트
-  const inviterPoints = await getPointsById(inviterId)
-  await supabase
-    .from('profiles')
-    .update({ points: inviterPoints + POINT_AMOUNTS.INVITE_REWARD })
-    .eq('id', inviterId)
-
-  // 초대자 트랜잭션 기록 (RLS 때문에 직접 insert 불가할 수 있으나 시도)
-  await supabase
-    .from('point_transactions')
-    .insert({
-      user_id: inviterId,
-      amount: POINT_AMOUNTS.INVITE_REWARD,
-      type: 'invite_reward',
-      description: '지인 초대 보상',
-    })
+  // 4) 초대자 1,000P 적립 (RPC atomic increment)
+  await addPoints(inviterId, POINT_AMOUNTS.INVITE_REWARD, 'invite_reward', '지인 초대 보상')
 
   return true
 }
 
-// ── 특정 유저 포인트 조회 (내부용, RLS 무관) ──
-async function getPointsById(userId: string): Promise<number> {
-  const supabase = createClient()
-  const { data } = await supabase
-    .from('profiles')
-    .select('points')
-    .eq('id', userId)
-    .single()
-  return data?.points ?? 0
-}
 
 // ── 포인트 내역 조회 ──
 export async function getPointHistory(

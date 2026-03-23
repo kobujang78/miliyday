@@ -4,7 +4,7 @@ import { useAuth } from '@/components/AuthProvider'
 import RankIcon, { type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import {
-  type FeedItem, loadFeed, addPost, toggleLike, formatTimeAgo, deleteFeedPost, editFeedPost,
+  type FeedItem, loadFeed, addPost, toggleLike, isPostLiked, formatTimeAgo, deleteFeedPost, editFeedPost,
   loadFeedComments, addFeedComment
 } from '@/lib/shareUtils'
 import { earnContentReward } from '@/lib/pointUtils'
@@ -163,10 +163,9 @@ export default function SharePage() {
 
   // --- Like Toggle ---
   const handleLike = async (id: string) => {
-    const success = await toggleLike(id)
-    if (success) {
-      setFeed(prev => prev.map(p => p.id === id ? { ...p, likes: p.likes + 1 } : p))
-    }
+    if (!user) return
+    const result = await toggleLike(id, user.id)
+    setFeed(prev => prev.map(p => p.id === id ? { ...p, likes: result.newCount } : p))
   }
 
   // --- Comment Handling ---
@@ -349,9 +348,9 @@ export default function SharePage() {
                 <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '20px' }}>
                   <button onClick={() => handleLike(f.id)} style={{
                     display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none',
-                    fontSize: '13px', color: f.likes > 0 ? '#ef4444' : '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0
+                    fontSize: '13px', color: (user && isPostLiked(f.id, user.id)) ? '#ef4444' : '#64748b', fontWeight: 600, cursor: 'pointer', padding: 0
                   }}>
-                    {f.likes > 0 ? '❤️' : '🤍'} 좋아요 {f.likes > 0 && f.likes}
+                    {(user && isPostLiked(f.id, user.id)) ? '❤️' : '🤍'} 좋아요 {f.likes > 0 && f.likes}
                   </button>
                   <button onClick={() => handleToggleComments(f)} style={{
                     display: 'flex', alignItems: 'center', gap: '6px', border: 'none', background: 'none',

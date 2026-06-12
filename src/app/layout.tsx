@@ -3,6 +3,7 @@ import React from 'react'
 import MockProvider from './providers/MockProvider'
 import AuthProvider from '@/components/AuthProvider'
 import AppShell from '@/components/AppShell'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 export const metadata = {
   title: '슬기로운 병영생활',
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AppShell>{children}</AppShell>
           </MockProvider>
         </AuthProvider>
+        <SpeedInsights />
       </body>
     </html>
   )

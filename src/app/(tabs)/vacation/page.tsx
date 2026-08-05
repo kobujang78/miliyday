@@ -104,11 +104,12 @@ export default function VacationPage() {
   }, [formType, formTitle, formStart, formEnd, formMemo, user])
 
   const handleDelete = useCallback(async (id: string) => {
-    const success = await deleteVacationRecord(id)
+    if (!user) return
+    const success = await deleteVacationRecord(id, user.id)
     if (success) {
       setRecords(prev => prev.filter(r => r.id !== id))
     }
-  }, [])
+  }, [user])
 
   const handleBudgetSave = useCallback(async () => {
     if (!user) return

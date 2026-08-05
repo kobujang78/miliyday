@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import RankIcon, { RANKS, BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS, getPromotionDates } from '@/lib/rankUtils'
 import { getPoints, getMyInviteCode, getInviteStats } from '@/lib/pointUtils'
@@ -10,14 +10,36 @@ import {
   acceptConnectionRequest, rejectConnectionRequest, disconnectSoldier,
   type ConnectionRequest, type SoldierSearchResult
 } from '@/lib/connectionUtils'
+import type { PostRow } from '@/types/database'
+
+/** 마이페이지 목록 쿼리가 실제로 select 하는 게시글 컬럼만 추린 타입. */
+type PostSummary = Pick<
+  PostRow,
+  'id' | 'title' | 'body' | 'category' | 'board_type' | 'created_at' | 'likes_count' | 'comments_count'
+>
+
+/**
+ * post_bookmarks 조인 결과.
+ * PostgREST 는 다대일 임베드를 객체로 돌려주지만 supabase-js 타입 추론은 배열로 잡는다.
+ * 둘 다 허용하고 아래 firstPost() 로 정규화한다. RLS 로 가려지면 null 이다.
+ */
+interface BookmarkRow {
+  post_id: string
+  posts: PostSummary | PostSummary[] | null
+}
+
+function firstPost(posts: BookmarkRow['posts']): PostSummary | null {
+  if (!posts) return null
+  return Array.isArray(posts) ? (posts[0] ?? null) : posts
+}
 
 function formatDate(d: Date) {
   return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
 }
 
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/components/AuthProvider'
-import { TERMS_OF_SERVICE, PRIVACY_POLICY, MARKETING_CONSENT } from '@/constants/legal'
+import { useAuth, type MiliProfile } from '@/components/AuthProvider'
+import { TERMS_OF_SERVICE, PRIVACY_POLICY } from '@/constants/legal'
 
 export default function MyPage() {
   const router = useRouter()
@@ -33,8 +55,8 @@ export default function MyPage() {
   const [inviteCount, setInviteCount] = useState(0)
   const [codeCopied, setCodeCopied] = useState(false)
 
-  const [myPosts, setMyPosts] = useState<any[]>([])
-  const [bookmarkedPosts, setBookmarkedPosts] = useState<any[]>([])
+  const [myPosts, setMyPosts] = useState<PostSummary[]>([])
+  const [bookmarkedPosts, setBookmarkedPosts] = useState<PostSummary[]>([])
   const [activeTab, setActiveTab] = useState<'info' | 'myPosts' | 'bookmarks'>('info')
   const [legalModal, setLegalModal] = useState<{ show: boolean, title: string, content: string }>({ show: false, title: '', content: '' })
 
@@ -85,6 +107,9 @@ export default function MyPage() {
   const canEditNickname = useMemo(() => {
     if (!nicknameUpdatedAt) return true
     const lastUpdate = new Date(nicknameUpdatedAt)
+    // 첫 렌더에는 profile 이 null 이라 위에서 반환되므로 하이드레이션 불일치가 없다.
+    // 반면 시각을 마운트 시점으로 고정하면 닉네임 저장 직후 남은 일수가 하루 어긋난다.
+    // eslint-disable-next-line react-hooks/purity -- 위 이유로 "지금" 기준 계산을 유지한다.
     const daysSince = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60 * 24)
     return daysSince >= 30
   }, [nicknameUpdatedAt])
@@ -93,11 +118,13 @@ export default function MyPage() {
     if (!nicknameUpdatedAt) return 0
     const lastUpdate = new Date(nicknameUpdatedAt)
     const nextAllowed = new Date(lastUpdate.getTime() + 30 * 24 * 60 * 60 * 1000)
+    // 마운트 시각으로 고정하면 저장 직후 "30일 후"가 "31일 후"로 표시되어 보이는 값이 달라진다.
+    // eslint-disable-next-line react-hooks/purity -- canEditNickname 과 같은 이유로 예외를 둔다.
     return Math.max(0, Math.ceil((nextAllowed.getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
   }, [nicknameUpdatedAt])
 
   const handleSaveInfo = async () => {
-    const updates: Record<string, any> = {
+    const updates: Partial<MiliProfile> = {
       display_name: editName,
     }
     if (isSoldier) {
@@ -125,7 +152,7 @@ export default function MyPage() {
       await supabase.from('profiles').update(updates).eq('id', user.id)
       // refresh to get new data
       const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, connected_soldier_id').eq('id', user.id).single()
-      if (data) updateProfile(data as any)
+      if (data) updateProfile(data as Partial<MiliProfile>)
     }
     setShowInfoEdit(false)
   }
@@ -159,10 +186,10 @@ export default function MyPage() {
       const compressed = await compressAvatar(file)
       const supabase = createClient()
       await supabase.from('profiles').update({ avatar_url: compressed }).eq('id', user.id)
-      updateProfile({ avatar_url: compressed } as any)
+      updateProfile({ avatar_url: compressed })
       // Trigger re-fetch
       const { data } = await supabase.from('profiles').select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, connected_soldier_id').eq('id', user.id).single()
-      if (data) updateProfile(data as any)
+      if (data) updateProfile(data as Partial<MiliProfile>)
     } catch {
       alert('사진 업로드에 실패했습니다.')
     }
@@ -193,7 +220,7 @@ export default function MyPage() {
       await deleteAccount()
       alert('탈퇴가 완료되었습니다. 그동안 이용해 주셔서 감사합니다.')
       router.replace('/onboarding')
-    } catch (e) {
+    } catch {
       alert('탈퇴 처리 중 오류가 발생했습니다.')
     }
   }
@@ -252,7 +279,11 @@ export default function MyPage() {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
       if (bPosts) {
-        setBookmarkedPosts(bPosts.map((b: any) => b.posts).filter(Boolean))
+        setBookmarkedPosts(
+          (bPosts as unknown as BookmarkRow[])
+            .map(b => firstPost(b.posts))
+            .filter((p): p is PostSummary => Boolean(p))
+        )
       }
     }
     fetchPointData()
@@ -775,7 +806,7 @@ export default function MyPage() {
                       </div>
                       {req.message && (
                         <div style={{ fontSize: '12px', color: '#475569', marginBottom: '10px', padding: '8px', background: 'rgba(255,255,255,0.7)', borderRadius: '8px' }}>
-                          "{req.message}"
+                          &quot;{req.message}&quot;
                         </div>
                       )}
                       <div style={{ display: 'flex', gap: '8px' }}>
@@ -1170,7 +1201,7 @@ export default function MyPage() {
           {bookmarkedPosts.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '30px', color: '#9ca3af', fontSize: '13px', background: '#fff', borderRadius: '16px' }}>찜한 게시글이 없습니다.</div>
           ) : (
-            bookmarkedPosts.map((p: any) => {
+            bookmarkedPosts.map(p => {
               const boardName = p.board_type === 'benefits' ? '슬병혜택' : '커뮤니티'
               return (
                 <div key={p.id} onClick={() => router.push(p.board_type === 'benefits' ? '/benefits' : '/board')} style={{

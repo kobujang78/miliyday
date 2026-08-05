@@ -1,5 +1,5 @@
 {
-  "name": "miliconnect-next",
+  "name": "miliyday",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -7,11 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "storybook": "start-storybook -p 6006 -s public",
     "static:build": "next build",
     "mobile:sync": "npx cap sync",
     "mobile:open:android": "npx cap open android",
-    "mobile:open:ios": "npx cap open ios"
+    "mobile:open:ios": "npx cap open ios",
+    "test": "playwright test tests/unit",
+    "test:e2e": "playwright test tests/dday.spec.ts",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
@@ -22,8 +24,7 @@
     "@supabase/supabase-js": "^2.98.0",
     "next": "16.1.6",
     "react": "19.2.3",
-    "react-dom": "19.2.3",
-    "start-storybook": "^1.0.0"
+    "react-dom": "19.2.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
@@ -36,7 +37,6 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
-    "msw": "^2.12.10",
     "playwright": "^1.58.2",
     "tailwindcss": "^4",
     "typescript": "^5"

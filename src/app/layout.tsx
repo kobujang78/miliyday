@@ -1,6 +1,5 @@
 import './globals.css'
 import React from 'react'
-import MockProvider from './providers/MockProvider'
 import AuthProvider from '@/components/AuthProvider'
 import AppShell from '@/components/AppShell'
 
@@ -14,9 +13,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="ko">
       <body>
         <AuthProvider>
-          <MockProvider>
-            <AppShell>{children}</AppShell>
-          </MockProvider>
+          <AppShell>{children}</AppShell>
         </AuthProvider>
       </body>
     </html>

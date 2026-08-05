@@ -33,7 +33,8 @@ interface AuthContextType {
     signInWithGoogle: () => Promise<void>
     signInWithOAuth: (provider: 'google' | 'kakao' | 'apple' | 'github') => Promise<void>
     signInWithEmail: (email: string, password: string) => Promise<{ error: any }>
-    signUpWithEmail: (email: string, password: string) => Promise<{ error: any }>
+    // needsEmailConfirm: 인증 메일 확인 전이라 세션이 없는 상태. 온보딩을 진행시키면 안 된다.
+    signUpWithEmail: (email: string, password: string) => Promise<{ error: any; needsEmailConfirm?: boolean }>
     signOut: () => Promise<void>
     deleteAccount: () => Promise<void>
     setGuestMode: () => void
@@ -49,7 +50,7 @@ const AuthContext = createContext<AuthContextType>({
     signInWithGoogle: async () => { },
     signInWithOAuth: async () => { },
     signInWithEmail: async () => ({ error: 'Not implemented' }),
-    signUpWithEmail: async () => ({ error: 'Not implemented' }),
+    signUpWithEmail: async () => ({ error: 'Not implemented', needsEmailConfirm: false }),
     signOut: async () => { },
     deleteAccount: async () => { },
     setGuestMode: () => { },
@@ -156,7 +157,6 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             // 3. Listen for changes (ALWAYS)
             const { data: { subscription } } = supabase.auth.onAuthStateChange(
                 async (event, session) => {
-                    console.log('Auth event:', event, session?.user?.email)
                     if (session?.user) {
                         setIsGuest(false)
                         setUser(session.user)
@@ -206,8 +206,15 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                 emailRedirectTo: `${window.location.origin}/auth/callback`,
             },
         })
-        if (data.user) setUser(data.user)
-        return { error }
+        if (error) return { error, needsEmailConfirm: false }
+
+        // 프로젝트 Auth 설정이 mailer_autoconfirm=false 이면 메일 확인 전까지 session 이 null 이다.
+        // 이때 user 만 보고 로그인 상태로 처리하면, 이후 profiles 쓰기가 익명 요청이 되어
+        // RLS(42501)에 막히고 온보딩이 완주되지 않는다. 세션이 있을 때만 로그인으로 인정한다.
+        if (!data.session) return { error: null, needsEmailConfirm: true }
+
+        setUser(data.user)
+        return { error: null, needsEmailConfirm: false }
     }
 
     const signOut = async () => {

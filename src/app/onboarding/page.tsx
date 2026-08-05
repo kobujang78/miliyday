@@ -25,6 +25,7 @@ export default function OnboardingPage() {
     const [enlistDate, setEnlistDate] = useState('')
     const [saving, setSaving] = useState(false)
     const [authError, setAuthError] = useState('')
+    const [authNotice, setAuthNotice] = useState('')
     const [inviteCode, setInviteCode] = useState('')
     const [agreeTerms, setAgreeTerms] = useState(false)
     const [agreePrivacy, setAgreePrivacy] = useState(false)
@@ -59,7 +60,11 @@ export default function OnboardingPage() {
         return () => clearTimeout(timer)
     }, [user, isGuest, profile, router])
 
-    // Read invite code from URL if present
+    // 초대 링크(/onboarding?invite=MILI-XXXX)로 들어온 경우 코드 자동 입력
+    useEffect(() => {
+        const code = searchParams.get('invite')
+        if (code) setInviteCode(code.trim().toUpperCase())
+    }, [searchParams])
 
     // Sync step with auth status (Only when not in splash)
     useEffect(() => {
@@ -112,25 +117,40 @@ export default function OnboardingPage() {
             return
         }
         setAuthError('')
+        setAuthNotice('')
         setSaving(true)
-        const { error } = authMode === 'login'
-            ? await signInWithEmail(email, password)
-            : await signUpWithEmail(email, password)
 
+        if (authMode === 'signup') {
+            const { error, needsEmailConfirm } = await signUpWithEmail(email, password)
+            setSaving(false)
+            if (error) {
+                setAuthError(error.message?.includes('already registered')
+                    ? '이미 가입된 이메일입니다. 로그인해주세요.'
+                    : (error.message || '가입에 실패했습니다'))
+                return
+            }
+            if (needsEmailConfirm) {
+                // 세션이 아직 없다. 여기서 온보딩을 진행시키면 profiles 쓰기가 익명 요청이 되어 실패한다.
+                setAuthNotice(`${email} 로 인증 메일을 보냈습니다.\n메일의 링크를 눌러 인증을 완료한 뒤 다시 로그인해주세요.`)
+                setAuthMode('login')
+                setPassword(''); setPasswordConfirm('')
+                return
+            }
+            setStep('userType')
+            return
+        }
+
+        const { error } = await signInWithEmail(email, password)
+
+        setSaving(false)
         if (error) {
             if (error.message?.includes('Invalid login')) {
                 setAuthError('이메일 또는 비밀번호가 올바르지 않습니다')
-            } else if (error.message?.includes('already registered')) {
-                setAuthError('이미 가입된 이메일입니다. 로그인해주세요.')
+            } else if (error.message?.includes('Email not confirmed')) {
+                setAuthError('이메일 인증이 완료되지 않았습니다. 받은 편지함의 인증 메일을 확인해주세요.')
             } else {
                 setAuthError(error.message || '인증에 실패했습니다')
             }
-            setSaving(false)
-        } else {
-            if (authMode === 'signup') {
-                setStep('userType')
-            }
-            setSaving(false)
         }
     }
 
@@ -396,6 +416,16 @@ export default function OnboardingPage() {
                                         onKeyDown={e => e.key === 'Enter' && handleEmailAuth()}
                                         style={inputStyle}
                                     />
+                                )}
+
+                                {/* 인증 메일 안내 */}
+                                {authNotice && (
+                                    <div style={{
+                                        padding: '10px 14px', borderRadius: '10px',
+                                        background: '#f0fdf4', border: '1px solid #bbf7d0',
+                                        color: '#15803d', fontSize: '12px', fontWeight: 600,
+                                        whiteSpace: 'pre-wrap', lineHeight: 1.5,
+                                    }}>📮 {authNotice}</div>
                                 )}
 
                                 {/* Error message */}

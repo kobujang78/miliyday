@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { createClient } from '@/lib/supabase'
 import type { AuthError, Subscription, User } from '@supabase/supabase-js'
 import { getPendingRequestCount } from '@/lib/connectionUtils'
+import type { UserRole } from '@/types/database'
 
 export interface MiliProfile {
     id: string
@@ -23,7 +24,17 @@ export interface MiliProfile {
     relationship: string | null
     connected_soldier_id: string | null
     invite_code: string | null
+    role: UserRole
 }
+
+// 관리자 판정의 단일 출처. 근거는 profiles.role 뿐이며,
+// 사용자가 직접 바꿀 수 있는 닉네임·표시 이름은 절대 근거로 삼지 않는다.
+export function isAdmin(profile: MiliProfile | null): boolean {
+    return profile?.role === 'admin'
+}
+
+// role 을 제외한 프로필 컬럼. role 컬럼 마이그레이션 전 폴백 조회에도 그대로 쓴다.
+const PROFILE_COLUMNS = 'id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, terms_agreed, marketing_agreed, marketing_agreed_at, user_type, relationship, connected_soldier_id, invite_code'
 
 interface AuthContextType {
     user: User | null
@@ -77,13 +88,32 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     const supabase = createClient()
 
     const fetchProfile = useCallback(async (userId: string) => {
-        const { data } = await supabase
+        const { data, error } = await supabase
             .from('profiles')
-            .select('id, email, display_name, branch, rank_level, enlist_date, nickname, avatar_url, nickname_updated_at, points, privacy_policy_agreed, terms_agreed, marketing_agreed, marketing_agreed_at, user_type, relationship, connected_soldier_id, invite_code')
+            .select(`${PROFILE_COLUMNS}, role`)
             .eq('id', userId)
             .single()
-        if (data) setProfile(data as MiliProfile)
-        return data
+
+        // 42703 = undefined_column. role 마이그레이션 적용 전이면 select 전체가 실패해
+        // 프로필이 통째로 비어버린다. 이때만 role 없이 다시 읽어 앱을 살리고,
+        // 권한은 항상 'user' 로 떨어뜨린다(닉네임 폴백 같은 우회는 두지 않는다).
+        if (error?.code === '42703') {
+            const { data: legacy } = await supabase
+                .from('profiles')
+                .select(PROFILE_COLUMNS)
+                .eq('id', userId)
+                .single()
+            if (!legacy) return null
+            const fallback = { ...legacy, role: 'user' } as MiliProfile
+            setProfile(fallback)
+            return fallback
+        }
+
+        if (!data) return null
+        // 컬럼은 있으나 값이 비어 있는 행도 일반 사용자로 본다.
+        const next = { ...data, role: (data as MiliProfile).role ?? 'user' } as MiliProfile
+        setProfile(next)
+        return next
     }, [supabase])
 
     useEffect(() => {
@@ -149,6 +179,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
                             user_type: 'soldier', relationship: null,
                             connected_soldier_id: null,
                             invite_code: p.inviteCode || null,
+                            role: 'user',
                         })
                     }
                 } catch { }
@@ -237,13 +268,35 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     const deleteAccount = async () => {
         if (user) {
-            // Delete public.profiles record.
-            // Many foreign keys are set to public.profiles.id, so this should trigger cascading
-            // or at least remove the user's presence from the app's tables.
-            const { error } = await supabase.from('profiles').delete().eq('id', user.id)
-            if (error) {
-                console.error('Account deletion error:', error)
-                throw error
+            // 정적 내보내기라 클라이언트는 서비스 롤 키를 가질 수 없다.
+            // profiles 행만 지우면 auth.users 에 이메일이 남으므로 Edge Function 에 위임한다.
+            // 대상 id 는 보내지 않는다. 함수가 JWT 로 본인을 확인하고 본인만 지운다.
+            const { data: { session } } = await supabase.auth.getSession()
+            const token = session?.access_token
+            if (!token) throw new Error('세션이 만료되어 탈퇴를 진행할 수 없습니다. 다시 로그인해 주세요.')
+
+            const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+            if (!baseUrl) throw new Error('탈퇴 요청 주소가 설정되지 않았습니다.')
+
+            let res: Response
+            try {
+                res = await fetch(`${baseUrl}/functions/v1/delete-account`, {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` },
+                })
+            } catch (e) {
+                // 네트워크 단절. 조용히 넘기면 탈퇴된 줄 알고 떠나므로 반드시 실패로 알린다.
+                console.error('Account deletion request failed:', e)
+                throw new Error('탈퇴 요청을 보내지 못했습니다. 네트워크 상태를 확인해 주세요.')
+            }
+
+            if (!res.ok) {
+                const detail = await res.text().catch(() => '')
+                console.error('Account deletion failed:', res.status, detail)
+                // 404 는 Edge Function 미배포. 성공으로 처리하면 계정이 남은 채 탈퇴로 오인한다.
+                throw new Error(res.status === 404
+                    ? '탈퇴 기능이 아직 준비되지 않았습니다(delete-account 미배포).'
+                    : `탈퇴 처리에 실패했습니다. (${res.status})`)
             }
         }
         await signOut()

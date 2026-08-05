@@ -15,9 +15,13 @@ export type Visibility = 'public' | 'connections' | 'private'
 export type ConnectionStatus = 'pending' | 'accepted' | 'rejected'
 export type VacationTypeKey = 'regular' | 'reward' | 'consolation' | 'petition' | 'other'
 
+/** 권한. 표시 이름이 아니라 이 컬럼이 관리자 여부의 유일한 근거다. */
+export type UserRole = 'user' | 'admin'
+
 export interface ProfileRow {
   id: string
   email: string
+  role: UserRole
   display_name: string | null
   branch: string | null
   rank_level: number

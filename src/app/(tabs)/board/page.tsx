@@ -1,7 +1,7 @@
 "use client"
 import React, { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
-import { useAuth } from '@/components/AuthProvider'
+import { useAuth, isAdmin } from '@/components/AuthProvider'
 import { earnContentReward } from '@/lib/pointUtils'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 import type { AuthorSummary, CommentRow, PostRow } from '@/types/database'
@@ -47,6 +47,8 @@ const formatTimeAgo = (dateStr: string) => {
 
 export default function MilitaryBoardPage() {
   const { user, profile } = useAuth()
+  // 관리자 판정은 profiles.role 만 근거로 한다. 닉네임은 사용자가 직접 바꿀 수 있어 신뢰할 수 없다.
+  const isAdminUser = isAdmin(profile)
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(false)
   const [activeCategory, setActiveCategory] = useState('전체')
@@ -179,7 +181,7 @@ export default function MilitaryBoardPage() {
 
     if (!error && data) {
       setPosts(prev => [{ ...data, isLiked: false, isBookmarked: false, showComments: false, commentsList: [] }, ...prev])
-      const result = await earnContentReward(user.id, 'post_reward', data.id)
+      const result = await earnContentReward('post_reward', data.id)
       if (result.earned) {
         setPointToast(`💰 ${result.points}P 적립! (오늘 ${result.remaining}회 남음)`)
         setTimeout(() => setPointToast(''), 3000)
@@ -344,7 +346,6 @@ export default function MilitaryBoardPage() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {filtered.map(p => {
             const authorName = p.profiles?.nickname || p.profiles?.display_name || '익명'
-            const isAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자';
             return (
               <article key={p.id} style={{
                 background: '#fff', borderRadius: '16px', border: '1px solid #f1f5f9',
@@ -379,8 +380,9 @@ export default function MilitaryBoardPage() {
                     }}>{p.category}</span>
                   )}
 
+                  {/* 아래 노출 조건은 UI 제어일 뿐이다. 실제 수정·삭제 권한은 posts 테이블 RLS 가 최종 판정한다. */}
                   <div style={{ display: 'flex', gap: '4px', marginLeft: '4px' }}>
-                    {(user?.id === p.user_id || isAdmin) && (
+                    {(user?.id === p.user_id || isAdminUser) && (
                       <button onClick={() => {
                         setEditingPostId(p.id)
                         setEditTitle(p.title)
@@ -391,7 +393,7 @@ export default function MilitaryBoardPage() {
                         color: '#64748b', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px'
                       }}>수정</button>
                     )}
-                    {(user?.id === p.user_id || isAdmin || p.profiles?.nickname === '관리자') && (
+                    {(user?.id === p.user_id || isAdminUser) && (
                       <button onClick={() => handleDeletePost(p.id)} style={{
                         border: 'none', background: '#fee2e2', fontSize: '11px',
                         color: '#ef4444', cursor: 'pointer', padding: '4px 8px', borderRadius: '4px'
@@ -409,7 +411,7 @@ export default function MilitaryBoardPage() {
                         onChange={e => setEditCategory(e.target.value)}
                         style={{ padding: '8px', border: '1px solid #cbd5e1', borderRadius: '8px', fontSize: '13px' }}
                       >
-                        {CATEGORIES.filter(c => c !== '전체' && (c !== '공지사항' || isAdmin)).map(c => <option key={c} value={c}>{c}</option>)}
+                        {CATEGORIES.filter(c => c !== '전체' && (c !== '공지사항' || isAdminUser)).map(c => <option key={c} value={c}>{c}</option>)}
                       </select>
                       <input
                         type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)}
@@ -538,10 +540,7 @@ export default function MilitaryBoardPage() {
             }}>
               {CATEGORIES.filter(c => c !== '전체').map(c => {
                 // 공지사항은 관리자만 선택 가능하도록 처리
-                if (c === '공지사항') {
-                  const isAuthAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자';
-                  if (!isAuthAdmin) return null;
-                }
+                if (c === '공지사항' && !isAdminUser) return null
                 return <option key={c} value={c}>{c}</option>
               })}
             </select>

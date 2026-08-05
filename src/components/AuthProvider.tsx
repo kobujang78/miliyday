@@ -1,7 +1,7 @@
 "use client"
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { User } from '@supabase/supabase-js'
+import type { AuthError, Subscription, User } from '@supabase/supabase-js'
 import { getPendingRequestCount } from '@/lib/connectionUtils'
 
 export interface MiliProfile {
@@ -32,25 +32,28 @@ interface AuthContextType {
     isGuest: boolean
     signInWithGoogle: () => Promise<void>
     signInWithOAuth: (provider: 'google' | 'kakao' | 'apple' | 'github') => Promise<void>
-    signInWithEmail: (email: string, password: string) => Promise<{ error: any }>
+    signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>
     // needsEmailConfirm: 인증 메일 확인 전이라 세션이 없는 상태. 온보딩을 진행시키면 안 된다.
-    signUpWithEmail: (email: string, password: string) => Promise<{ error: any; needsEmailConfirm?: boolean }>
+    signUpWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null; needsEmailConfirm?: boolean }>
     signOut: () => Promise<void>
     deleteAccount: () => Promise<void>
     setGuestMode: () => void
     refreshProfile: () => Promise<void>
-    updateProfile: (updates: Partial<MiliProfile> | { rankOverride: number | null }) => void
+    updateProfile: (updates: Partial<MiliProfile> & { rankOverride?: number | null }) => void
     connectedSoldier: Partial<MiliProfile> | null
     pendingRequests: number
     refreshPendingRequests: () => Promise<void>
 }
 
+// Provider 밖에서 useAuth() 를 부른 경우에만 반환되는 자리표시자. 실제 AuthError 객체는 아니다.
+const NOT_IMPLEMENTED = 'Not implemented' as unknown as AuthError
+
 const AuthContext = createContext<AuthContextType>({
     user: null, profile: null, loading: true, isGuest: false,
     signInWithGoogle: async () => { },
     signInWithOAuth: async () => { },
-    signInWithEmail: async () => ({ error: 'Not implemented' }),
-    signUpWithEmail: async () => ({ error: 'Not implemented', needsEmailConfirm: false }),
+    signInWithEmail: async () => ({ error: NOT_IMPLEMENTED }),
+    signUpWithEmail: async () => ({ error: NOT_IMPLEMENTED, needsEmailConfirm: false }),
     signOut: async () => { },
     deleteAccount: async () => { },
     setGuestMode: () => { },
@@ -95,6 +98,9 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
             }
             fetchConnectedSoldier()
         } else {
+            // connectedSoldier 는 Supabase 조회로만 채워지는 값이라 렌더 중 파생이 불가능하다.
+            // 연결이 끊기면 이 effect 에서 같이 비워야 조회 결과와 상태가 어긋나지 않는다.
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setConnectedSoldier(null)
         }
     }, [profile?.connected_soldier_id])
@@ -114,11 +120,13 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
     // Fetch pending requests when profile loads/changes
     useEffect(() => {
+        // 대기 중인 연결 요청 수는 Supabase 조회 결과라 렌더 중 계산할 수 없다.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         refreshPendingRequests()
     }, [refreshPendingRequests])
 
     useEffect(() => {
-        let authSubscription: any = null
+        let authSubscription: Subscription | null = null
 
         const initAuth = async () => {
             // 1. Initial guest check
@@ -246,7 +254,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
         setIsGuest(true)
     }
 
-    const updateProfile = useCallback((updates: any) => {
+    const updateProfile = useCallback((updates: Partial<MiliProfile> & { rankOverride?: number | null }) => {
         setProfile(prev => {
             if (!prev) return null
             const next = { ...prev, ...updates }

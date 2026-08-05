@@ -15,10 +15,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const isOnboarding = pathname === '/onboarding'
     const isCallback = pathname.startsWith('/auth/')
 
+    // 인증 게이트: router.replace 라는 외부 시스템 호출과 통과 여부(checked)를 한 번에 결정해야 하므로
+    // effect 가 구조적으로 맞다. checked 는 한 번 true 가 되면 유지되는 sticky 값이라
+    // 렌더 중 파생 계산으로 바꾸면 세션 만료 시 리다이렉트 도중 화면이 스플래시로 되돌아가는 등
+    // 동작이 달라진다. 그래서 규칙을 끄고 현재 흐름을 유지한다.
+    // 인증 게이트. router.replace 라는 외부 시스템 호출과 통과 여부(checked)를 함께 결정하므로
+    // effect 가 구조적으로 맞다. checked 는 한 번 true 가 되면 유지되는 sticky 값이라
+    // 렌더 중 파생 계산으로 바꾸면 세션이 끊길 때 리다이렉트 도중 화면이 스플래시로 되돌아가는 등
+    // 동작이 달라진다. 그래서 규칙을 끄고 현재 흐름을 유지한다.
     useEffect(() => {
         if (loading) return
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         if (isOnboarding || isCallback) { setChecked(true); return }
-        
+
         const isLoggedIn = !!user || isGuest
         const isFullyOnboarded = isGuest || (user && profile?.privacy_policy_agreed)
         

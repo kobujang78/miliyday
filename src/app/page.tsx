@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react'
 import RankIcon, { BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import { useAuth } from '@/components/AuthProvider'
-import { loadVacationRecords, nextVacationDDay } from '@/lib/vacationUtils'
+import { loadVacationRecords, nextVacationDDay, type VacationRecord } from '@/lib/vacationUtils'
 import { createClient } from '@/lib/supabase'
 
 function formatDate(d: Date) {
@@ -90,7 +90,7 @@ export default function Home() {
   }, [effectiveEnlistDate, effectiveBranch])
 
   // Vacation D-Day from Supabase
-  const [vacationInfo, setVacationInfo] = useState<{ days: number; record: any } | null>(null)
+  const [vacationInfo, setVacationInfo] = useState<{ days: number; record: VacationRecord } | null>(null)
   useEffect(() => {
     const load = async () => {
       if (!user) return

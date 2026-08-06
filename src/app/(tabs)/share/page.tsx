@@ -1,6 +1,6 @@
 "use client"
 import React, { useEffect, useState, useRef } from 'react'
-import { useAuth } from '@/components/AuthProvider'
+import { useAuth, isAdmin } from '@/components/AuthProvider'
 import RankIcon, { type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import {
@@ -24,6 +24,10 @@ export default function SharePage() {
   const userBranch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   const userRank = enlistDate ? calcAutoRank(enlistDate, userBranch) : ((profile?.rank_level as RankLevel) || 1)
+
+  // 관리자 판정은 profiles.role 만 근거로 한다.
+  // 닉네임은 본인이 수정할 수 있으므로 권한 근거가 될 수 없다.
+  const isAdminUser = isAdmin(profile)
 
   const [feed, setFeed] = useState<FeedItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -123,13 +127,11 @@ export default function SharePage() {
     if (newPost) {
       setFeed(prev => [newPost, ...prev])
 
-      // 포인트 적립
-      if (user?.id) {
-        const result = await earnContentReward(user.id, 'feed_reward', newPost.id)
-        if (result.earned) {
-          setPointToast(`💰 ${result.points}P 적립! (오늘 ${result.remaining}회 남음)`)
-          setTimeout(() => setPointToast(''), 3000)
-        }
+      // 포인트 적립 (대상은 DB 함수가 auth.uid() 로 판정한다)
+      const result = await earnContentReward('feed_reward', newPost.id)
+      if (result.earned) {
+        setPointToast(`💰 ${result.points}P 적립! (오늘 ${result.remaining}회 남음)`)
+        setTimeout(() => setPointToast(''), 3000)
       }
     }
 
@@ -221,8 +223,7 @@ export default function SharePage() {
           {feed.map(f => {
             const vis = VISIBILITY_MAP[f.visibility] || VISIBILITY_MAP.connections
             const isOwner = user?.id === f.ownerId
-            const isAdmin = profile?.nickname === '관리자' || profile?.display_name === '관리자'
-            
+
             return (
               <div key={f.id} style={{
                 background: '#fff', borderRadius: '16px', overflow: 'hidden',
@@ -264,7 +265,7 @@ export default function SharePage() {
                     }}>
                       {vis.icon} {vis.label}
                     </span>
-                    {(isOwner || isAdmin) && (
+                    {(isOwner || isAdminUser) && (
                       <div style={{ display: 'flex', gap: '4px' }}>
                         {isOwner && (
                           <button onClick={() => {

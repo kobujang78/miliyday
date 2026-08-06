@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { createClient } from '@/lib/supabase'
-import { processInviteReward } from '@/lib/pointUtils'
+import { redeemInviteCode, REDEEM_MESSAGES } from '@/lib/pointUtils'
 import { TERMS_OF_SERVICE, PRIVACY_POLICY, MARKETING_CONSENT } from '@/constants/legal'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
 import type { UserType } from '@/types/database'
@@ -213,11 +213,16 @@ export default function OnboardingPage() {
             if (user) {
                 await refreshProfile()
 
-                // 초대코드 처리
+                // 초대코드 처리.
+                // 대상 사용자를 넘기지 않는다 — DB 함수가 auth.uid() 로 호출자 본인에게만 적립한다.
+                // 프로필 저장은 이미 끝난 시점이므로 실패해도 안내만 하고 가입은 그대로 완료시킨다.
                 if (inviteCode.trim()) {
-                    const ok = await processInviteReward(inviteCode.trim(), user.id)
-                    if (ok) {
-                        alert('🎉 초대코드 적용! 2,000P가 적립되었습니다!')
+                    const result = await redeemInviteCode(inviteCode)
+                    if (result.ok) {
+                        const amount = result.points ? `${result.points.toLocaleString()}P` : '2,000P'
+                        alert(`🎉 초대코드 적용! ${amount}가 적립되었습니다!`)
+                    } else {
+                        alert(REDEEM_MESSAGES[result.reason ?? 'error'])
                     }
                 }
             }

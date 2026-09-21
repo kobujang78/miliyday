@@ -3,15 +3,9 @@ import React, { useState, useEffect, useMemo } from 'react'
 import RankIcon, { BRANCHES, SERVICE_MONTHS, type Branch, type RankLevel } from '@/components/RankIcon'
 import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import { useAuth } from '@/components/AuthProvider'
-import { loadVacationRecords, nextVacationDDay } from '@/lib/vacationUtils'
+import { loadVacationRecords, nextVacationDDay, type VacationRecord } from '@/lib/vacationUtils'
 import { createClient } from '@/lib/supabase'
-
-function formatDate(d: Date) {
-  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
-}
-function daysBetween(a: Date, b: Date) {
-  return Math.round((b.getTime() - a.getTime()) / (24 * 60 * 60 * 1000))
-}
+import { calculateServiceTime, formatElapsedTime } from '@/lib/serviceTime'
 
 interface Notice { id: string; title: string; body: string; date: string }
 
@@ -41,6 +35,14 @@ export default function Home() {
   // Notices from Supabase
   const [notices, setNotices] = useState<Notice[]>([])
   const [activeNoticeIndex, setActiveNoticeIndex] = useState(0)
+  const [nowMs, setNowMs] = useState<number | null>(null)
+
+  useEffect(() => {
+    const update = () => setNowMs(Date.now())
+    update()
+    const interval = window.setInterval(update, 100)
+    return () => window.clearInterval(interval)
+  }, [])
 
   useEffect(() => {
     const fetchNotices = async () => {
@@ -75,22 +77,12 @@ export default function Home() {
 
   // D-Day
   const dday = useMemo(() => {
-    if (!effectiveEnlistDate) return null
-    const months = SERVICE_MONTHS[effectiveBranch]
-    const enlist = new Date(effectiveEnlistDate)
-    const discharge = new Date(enlist)
-    discharge.setMonth(discharge.getMonth() + months)
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const total = Math.max(1, daysBetween(enlist, discharge))
-    const passed = Math.min(total, Math.max(0, daysBetween(enlist, today)))
-    const remaining = Math.max(0, total - passed)
-    const percent = Math.min(100, Math.max(0, (passed / total) * 100))
-    return { total, passed, remaining, percent: Math.round(percent * 10) / 10, discharge }
-  }, [effectiveEnlistDate, effectiveBranch])
+    if (!effectiveEnlistDate || nowMs === null) return null
+    return calculateServiceTime(effectiveEnlistDate, SERVICE_MONTHS[effectiveBranch], new Date(nowMs))
+  }, [effectiveEnlistDate, effectiveBranch, nowMs])
 
   // Vacation D-Day from Supabase
-  const [vacationInfo, setVacationInfo] = useState<{ days: number; record: any } | null>(null)
+  const [vacationInfo, setVacationInfo] = useState<{ days: number; record: VacationRecord } | null>(null)
   useEffect(() => {
     const load = async () => {
       if (!user) return
@@ -153,7 +145,7 @@ export default function Home() {
                   )}
                   <div style={{ display: 'flex', gap: '8px', fontSize: '15px', opacity: 0.9 }}>
                     {vacationInfo && <span>휴가 D-{vacationInfo.days}</span>}
-                    <span>전역 D-{dday.remaining}</span>
+                    <span>전역 D-{dday.remainingDays}</span>
                   </div>
                 </>
 
@@ -263,13 +255,12 @@ export default function Home() {
                 background: `${accentColor}08`, border: `1px solid ${accentColor}12`,
               }}>
                 <div style={{ fontSize: '10px', color: '#6b7280' }}>전역일</div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: accentColor }}>{formatDate(dday.discharge)}</div>
+                <div style={{ fontSize: '14px', fontWeight: 700, color: accentColor }}>{dday.dischargeDate.replaceAll('-', '.')} 08:00</div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
                 {[
-                  { label: '총', value: `${dday.total}일` },
-                  { label: '경과', value: `${dday.passed}일` },
-                  { label: 'D-', value: `${dday.remaining}` },
+                  { label: '총', value: `${dday.totalDays}일` },
+                  { label: 'D-', value: `${dday.remainingDays}` },
                 ].map(s => (
                   <div key={s.label} style={{
                     textAlign: 'center', padding: '6px 2px', borderRadius: '8px', background: '#f8fafc',
@@ -278,6 +269,12 @@ export default function Home() {
                     <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{s.value}</div>
                   </div>
                 ))}
+              </div>
+              <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: '8px', background: '#f8fafc' }}>
+                <div style={{ fontSize: '9px', color: '#9ca3af' }}>경과</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatElapsedTime(dday.elapsedMs)}
+                </div>
               </div>
             </div>
           </div>

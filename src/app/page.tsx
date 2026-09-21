@@ -5,7 +5,7 @@ import { calcAutoRank, RANK_LABELS } from '@/lib/rankUtils'
 import { useAuth } from '@/components/AuthProvider'
 import { loadVacationRecords, nextVacationDDay, type VacationRecord } from '@/lib/vacationUtils'
 import { createClient } from '@/lib/supabase'
-import { calculateServiceTime, formatElapsedTime } from '@/lib/serviceTime'
+import { calculateServiceTime, formatElapsedTime, formatRemainingTime } from '@/lib/serviceTime'
 
 interface Notice { id: string; title: string; body: string; date: string }
 
@@ -145,7 +145,7 @@ export default function Home() {
                   )}
                   <div style={{ display: 'flex', gap: '8px', fontSize: '15px', opacity: 0.9 }}>
                     {vacationInfo && <span>휴가 D-{vacationInfo.days}</span>}
-                    <span>전역 D-{dday.remainingDays}</span>
+                    <span>전역까지 {formatRemainingTime(dday.remainingMs)}</span>
                   </div>
                 </>
 
@@ -257,18 +257,15 @@ export default function Home() {
                 <div style={{ fontSize: '10px', color: '#6b7280' }}>전역일</div>
                 <div style={{ fontSize: '14px', fontWeight: 700, color: accentColor }}>{dday.dischargeDate.replaceAll('-', '.')} 08:00</div>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-                {[
-                  { label: '총', value: `${dday.totalDays}일` },
-                  { label: 'D-', value: `${dday.remainingDays}` },
-                ].map(s => (
-                  <div key={s.label} style={{
-                    textAlign: 'center', padding: '6px 2px', borderRadius: '8px', background: '#f8fafc',
-                  }}>
-                    <div style={{ fontSize: '9px', color: '#9ca3af' }}>{s.label}</div>
-                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{s.value}</div>
-                  </div>
-                ))}
+              <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: '8px', background: '#f8fafc' }}>
+                <div style={{ fontSize: '9px', color: '#9ca3af' }}>총 복무기간</div>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>{dday.totalDays}일</div>
+              </div>
+              <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: '8px', background: '#f8fafc' }}>
+                <div style={{ fontSize: '9px', color: '#9ca3af' }}>전역까지</div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a', fontVariantNumeric: 'tabular-nums' }}>
+                  {formatRemainingTime(dday.remainingMs)}
+                </div>
               </div>
               <div style={{ textAlign: 'center', padding: '6px 2px', borderRadius: '8px', background: '#f8fafc' }}>
                 <div style={{ fontSize: '9px', color: '#9ca3af' }}>경과</div>

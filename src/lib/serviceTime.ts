@@ -32,3 +32,7 @@ export function formatElapsedTime(elapsedMs: number) {
   const pad = (value: number) => String(value).padStart(2, '0')
   return `${days}일 ${pad(hours)}:${pad(minutes)}:${pad(seconds)}.${tenth}`
 }
+
+export function formatRemainingTime(remainingMs: number) {
+  return formatElapsedTime(Math.ceil(Math.max(0, remainingMs) / 100) * 100)
+}

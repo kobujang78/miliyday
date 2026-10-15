@@ -41,7 +41,6 @@ export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch 
   const { profile, connectedSoldier } = useAuth();
 
   // Determine if we should use local settings or connected soldier info
-  const isSoldier = profile?.user_type === 'soldier';
   const hasConnection = !!profile?.connected_soldier_id && !!connectedSoldier;
 
   // Local state with localStorage persistence
@@ -52,14 +51,18 @@ export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch 
   const branch = (hasConnection && connectedSoldier?.branch) ? (connectedSoldier.branch as Branch) : localBranch;
   const enlistmentDate = (hasConnection && connectedSoldier?.enlist_date) ? connectedSoldier.enlist_date : localEnlistmentDate;
 
+  // localStorage 라는 외부 시스템에서 값을 읽어와 React 상태와 동기화하는 구간이다.
+  // 정적 프리렌더 시점에는 localStorage 가 없으므로 초기값(lazy initializer)으로 옮기면
+  // 하이드레이션 불일치가 생긴다. 마운트 후 1회 반영이 맞는 구조라 규칙을 끈다.
   useEffect(() => {
     // load saved
     try {
       const savedBranch = localStorage.getItem('mili_branch') as Branch | null;
       const savedDate = localStorage.getItem('mili_enlist');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (!propDate && savedDate) setLocalEnlistmentDate(savedDate);
       if (savedBranch) setLocalBranch(savedBranch);
-    } catch (e) {
+    } catch {
       // ignore
     }
   }, [propDate]);
@@ -68,7 +71,7 @@ export default function MiliDDay({ enlistmentDate: propDate, branch: propBranch 
     try {
       if (localEnlistmentDate) localStorage.setItem('mili_enlist', localEnlistmentDate);
       localStorage.setItem('mili_branch', localBranch);
-    } catch (e) {}
+    } catch {}
   }, [localEnlistmentDate, localBranch]);
 
   const { totalDays, passedDays, remainingDays, percent, dischargeDate } = useMemo(() => {

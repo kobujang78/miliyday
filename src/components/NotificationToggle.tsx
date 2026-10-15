@@ -5,6 +5,9 @@ export default function NotificationToggle() {
   const [granted, setGranted] = useState<boolean>(false)
   const [enabled, setEnabled] = useState<boolean>(() => { try { return localStorage.getItem('mili_notify') === '1' } catch { return false } })
 
+  // 브라우저 Notification API 는 서버 렌더 시점에 없으므로 마운트 후에만 읽을 수 있다.
+  // 외부 시스템 상태를 React 로 가져오는 동기화라 effect 가 맞는 자리다.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setGranted(typeof Notification !== 'undefined' && Notification.permission === 'granted') }, [])
 
   async function request() {

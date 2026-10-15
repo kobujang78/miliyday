@@ -29,9 +29,9 @@ export default function QuickActions({ inviteCode, dischargeDate }: { inviteCode
   const code = inviteCode || genInvite();
   async function handleShare() {
     const text = `슬기로운 병영생활 초대: ${code}`;
-    if ((navigator as any).share) {
-      try { await (navigator as any).share({ title: '슬기로운 병영생활', text }); return }
-      catch (e) { }
+    if (navigator.share) {
+      try { await navigator.share({ title: '슬기로운 병영생활', text }); return }
+      catch { /* 사용자가 공유를 취소한 경우 아래 클립보드 복사로 폴백 */ }
     }
     await navigator.clipboard?.writeText(text);
     alert('공유 텍스트가 클립보드에 복사되었습니다');

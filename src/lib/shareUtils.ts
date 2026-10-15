@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase'
+import { firstAuthor, type FeedCommentRow, type FeedPostRow, type WithAuthor } from '@/types/database'
 
 export interface FeedItem {
   id: string
@@ -43,21 +44,24 @@ export async function loadFeed(): Promise<FeedItem[]> {
 
   if (error || !data) return []
 
-  return data.map((row: any) => ({
-    id: row.id,
-    ownerId: row.user_id || '',
-    ownerName: row.profiles?.display_name || '사용자',
-    ownerNickname: row.profiles?.nickname || '',
-    ownerAvatar: row.profiles?.avatar_url || '',
-    ownerRank: row.profiles?.rank_level || 1,
-    ownerBranch: row.profiles?.branch || 'army',
-    caption: row.caption || '',
-    images: row.images || [],
-    visibility: row.visibility || 'connections',
-    createdAt: row.created_at,
-    likes: row.likes || 0,
-    comments: row.comments_count || 0,
-  }))
+  return (data as WithAuthor<FeedPostRow>[]).map((row) => {
+    const author = firstAuthor(row.profiles)
+    return {
+      id: row.id,
+      ownerId: row.user_id || '',
+      ownerName: author?.display_name || '사용자',
+      ownerNickname: author?.nickname || '',
+      ownerAvatar: author?.avatar_url || '',
+      ownerRank: author?.rank_level || 1,
+      ownerBranch: author?.branch || 'army',
+      caption: row.caption || '',
+      images: row.images || [],
+      visibility: row.visibility || 'connections',
+      createdAt: row.created_at,
+      likes: row.likes || 0,
+      comments: row.comments_count || 0,
+    }
+  })
 }
 
 // Add a new post to Supabase
@@ -84,20 +88,23 @@ export async function addPost(post: {
 
   if (error || !data) return null
 
+  const row = data as WithAuthor<FeedPostRow>
+  const author = firstAuthor(row.profiles)
+
   return {
-    id: data.id,
-    ownerId: data.user_id || '',
-    ownerName: (data as any).profiles?.display_name || '사용자',
-    ownerNickname: (data as any).profiles?.nickname || '',
-    ownerAvatar: (data as any).profiles?.avatar_url || '',
-    ownerRank: (data as any).profiles?.rank_level || 1,
-    ownerBranch: (data as any).profiles?.branch || 'army',
-    caption: data.caption || '',
-    images: data.images || [],
-    visibility: data.visibility || 'connections',
-    createdAt: data.created_at,
-    likes: data.likes || 0,
-    comments: data.comments_count || 0,
+    id: row.id,
+    ownerId: row.user_id || '',
+    ownerName: author?.display_name || '사용자',
+    ownerNickname: author?.nickname || '',
+    ownerAvatar: author?.avatar_url || '',
+    ownerRank: author?.rank_level || 1,
+    ownerBranch: author?.branch || 'army',
+    caption: row.caption || '',
+    images: row.images || [],
+    visibility: row.visibility || 'connections',
+    createdAt: row.created_at,
+    likes: row.likes || 0,
+    comments: row.comments_count || 0,
   }
 }
 
@@ -204,16 +211,19 @@ export async function loadFeedComments(postId: string): Promise<FeedComment[]> {
 
   if (error || !data) return []
 
-  return data.map((row: any) => ({
-    id: row.id,
-    userId: row.user_id,
-    userName: row.profiles?.nickname || row.profiles?.display_name || '사용자',
-    userAvatar: row.profiles?.avatar_url || '',
-    userRank: row.profiles?.rank_level || 1,
-    userBranch: row.profiles?.branch || 'army',
-    body: row.body || '',
-    createdAt: row.created_at,
-  }))
+  return (data as WithAuthor<FeedCommentRow>[]).map((row) => {
+    const author = firstAuthor(row.profiles)
+    return {
+      id: row.id,
+      userId: row.user_id,
+      userName: author?.nickname || author?.display_name || '사용자',
+      userAvatar: author?.avatar_url || '',
+      userRank: author?.rank_level || 1,
+      userBranch: author?.branch || 'army',
+      body: row.body || '',
+      createdAt: row.created_at,
+    }
+  })
 }
 
 // Add a comment to a feed post
@@ -236,14 +246,17 @@ export async function addFeedComment(postId: string, userId: string, body: strin
     await supabase.from('feed_posts').update({ comments_count: post.comments_count + 1 }).eq('id', postId)
   }
 
+  const row = data as WithAuthor<FeedCommentRow>
+  const author = firstAuthor(row.profiles)
+
   return {
-    id: data.id,
-    userId: data.user_id,
-    userName: (data as any).profiles?.nickname || (data as any).profiles?.display_name || '사용자',
-    userAvatar: (data as any).profiles?.avatar_url || '',
-    userRank: (data as any).profiles?.rank_level || 1,
-    userBranch: (data as any).profiles?.branch || 'army',
-    body: data.body || '',
-    createdAt: data.created_at,
+    id: row.id,
+    userId: row.user_id,
+    userName: author?.nickname || author?.display_name || '사용자',
+    userAvatar: author?.avatar_url || '',
+    userRank: author?.rank_level || 1,
+    userBranch: author?.branch || 'army',
+    body: row.body || '',
+    createdAt: row.created_at,
   }
 }

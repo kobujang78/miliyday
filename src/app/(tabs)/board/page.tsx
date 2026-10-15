@@ -4,31 +4,24 @@ import { createClient } from '@/lib/supabase'
 import { useAuth } from '@/components/AuthProvider'
 import { earnContentReward } from '@/lib/pointUtils'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
+import type { AuthorSummary, CommentRow, PostRow } from '@/types/database'
 
-interface Comment {
-  id: string
-  user_id: string
-  body: string
-  created_at: string
-  profiles?: any
+interface Comment extends CommentRow {
+  profiles?: AuthorSummary | null
 }
 
-interface Post {
-  id: string
-  title: string
-  body: string
-  category: string
-  image_url?: string
-  likes_count: number
-  comments_count: number
-  created_at: string
-  user_id: string
-  board_type: string
-  profiles?: any
+/** DB 행에 이 화면에서만 쓰는 UI 상태를 얹은 형태. */
+interface Post extends PostRow {
+  profiles?: AuthorSummary | null
   isLiked?: boolean
   isBookmarked?: boolean
   showComments?: boolean
   commentsList?: Comment[]
+}
+
+/** post_likes / post_bookmarks 에서 post_id 만 조회한 결과. */
+interface PostIdRow {
+  post_id: string
 }
 
 const CATEGORIES = ['전체', '공지사항', '자유', '질문', '꿀팁', '부대자랑', '고민상담']
@@ -40,6 +33,16 @@ const categoryColors: Record<string, string> = {
   '꿀팁': '#f59e0b',
   '부대자랑': '#8b5cf6',
   '고민상담': '#ef4444',
+}
+
+// 렌더 시점 기준 상대 시각. 컴포넌트 상태에 의존하지 않으므로 모듈 스코프에 둔다.
+const formatTimeAgo = (dateStr: string) => {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `${Math.max(1, mins)}분 전`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `${hours}시간 전`
+  return `${Math.floor(hours / 24)}일 전`
 }
 
 export default function MilitaryBoardPage() {
@@ -78,8 +81,8 @@ export default function MilitaryBoardPage() {
       .order('created_at', { ascending: false })
 
     if (!error && postsData) {
-      let likesData: any[] = []
-      let bookmarksData: any[] = []
+      let likesData: PostIdRow[] = []
+      let bookmarksData: PostIdRow[] = []
 
       if (user?.id) {
         const [{ data: l }, { data: b }] = await Promise.all([
@@ -106,6 +109,9 @@ export default function MilitaryBoardPage() {
   }
 
   useEffect(() => {
+    // 외부 시스템(Supabase)에서 목록을 받아오는 마운트/로그인 변경 시 1회 로드다.
+    // 로딩 플래그를 동기적으로 세우지 않으면 로딩 UI 가 사라지므로 규칙 예외로 둔다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchPosts()
   }, [user])
 
@@ -300,15 +306,6 @@ export default function MilitaryBoardPage() {
     }
   }
 
-  const formatTimeAgo = (dateStr: string) => {
-    const diff = Date.now() - new Date(dateStr).getTime()
-    const mins = Math.floor(diff / 60000)
-    if (mins < 60) return `${Math.max(1, mins)}분 전`
-    const hours = Math.floor(mins / 60)
-    if (hours < 24) return `${hours}시간 전`
-    return `${Math.floor(hours / 24)}일 전`
-  }
-
   return (
     <div style={{ maxWidth: '480px', margin: '0 auto', paddingBottom: '40px' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
@@ -360,14 +357,15 @@ export default function MilitaryBoardPage() {
                     background: p.profiles?.avatar_url ? `url(${p.profiles.avatar_url}) center/cover` : '#e2e8f0',
                     display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
                   }}>
-                    {!p.profiles?.avatar_url && <RankIcon level={p.profiles?.rank_level || 1} branch={p.profiles?.branch || 'army'} size={24} />}
+                    {/* DB 는 계급/군종을 number·text 로 저장하므로 UI 유니온 타입으로 단언한다 */}
+                    {!p.profiles?.avatar_url && <RankIcon level={(p.profiles?.rank_level || 1) as RankLevel} branch={(p.profiles?.branch || 'army') as Branch} size={24} />}
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                       <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{authorName}</div>
                       {p.profiles?.branch && (
                         <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 500 }}>
-                          ({BRANCHES.find(b => b.value === p.profiles.branch)?.label} · {RANKS.find(r => r.value === p.profiles.rank_level)?.label})
+                          ({BRANCHES.find(b => b.value === p.profiles?.branch)?.label} · {RANKS.find(r => r.value === p.profiles?.rank_level)?.label})
                         </div>
                       )}
                     </div>
@@ -485,7 +483,7 @@ export default function MilitaryBoardPage() {
                           background: c.profiles?.avatar_url ? `url(${c.profiles.avatar_url}) center/cover` : '#e2e8f0',
                           display: 'flex', alignItems: 'center', justifyContent: 'center'
                         }}>
-                          {!c.profiles?.avatar_url && <RankIcon level={c.profiles?.rank_level || 1} branch={c.profiles?.branch || 'army'} size={18} />}
+                          {!c.profiles?.avatar_url && <RankIcon level={(c.profiles?.rank_level || 1) as RankLevel} branch={(c.profiles?.branch || 'army') as Branch} size={18} />}
                         </div>
                         <div style={{ flex: 1 }}>
                           <div style={{ display: 'flex', gap: '6px', alignItems: 'baseline' }}>

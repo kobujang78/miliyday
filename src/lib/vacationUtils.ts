@@ -104,12 +104,19 @@ export async function addVacationRecord(userId: string, record: Omit<VacationRec
   }
 }
 
-export async function deleteVacationRecord(recordId: string): Promise<boolean> {
+/**
+ * 심층 방어: 소유자 조건을 클라이언트에서도 건다.
+ * RLS 가 최종 방어선이지만, 정책이 잘못 열려 있을 때 id 만으로 남의 기록을
+ * 지울 수 있는 상태를 만들지 않는다.
+ */
+export async function deleteVacationRecord(recordId: string, userId: string): Promise<boolean> {
+  if (!userId) return false
   const supabase = createClient()
   const { error } = await supabase
     .from('vacation_records')
     .delete()
     .eq('id', recordId)
+    .eq('user_id', userId)
   return !error
 }
 

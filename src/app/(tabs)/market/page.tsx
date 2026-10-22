@@ -1,30 +1,82 @@
 "use client"
-import React, { useEffect, useState } from 'react'
-import { createClient } from '@/lib/supabase'
-import { useAuth } from '@/components/AuthProvider'
+import { useState } from 'react'
 
-interface Item { id: string; title: string; price: number; status: string; description?: string; user_id?: string }
-
-const STATUS_MAP: Record<string, { label: string; bg: string; color: string }> = {
-  selling: { label: '판매중', bg: '#dcfce7', color: '#16a34a' },
-  reserved: { label: '예약중', bg: '#fef3c7', color: '#d97706' },
-  sold: { label: '판매완료', bg: '#f1f5f9', color: '#94a3b8' },
-}
+const PX_GUIDE_URL = 'https://pxguide.zeromorow.chatgpt.site'
 
 export default function MarketPage() {
+  const [isLoaded, setIsLoaded] = useState(false)
+
   return (
-    <div style={{ 
-      maxWidth: '480px', margin: '0 auto', padding: '40px 20px', 
-      textAlign: 'center', minHeight: '60dvh', display: 'flex', 
-      flexDirection: 'column', alignItems: 'center', justifyContent: 'center' 
+    <section style={{
+      position: 'relative',
+      width: '100%',
+      height: 'calc(100dvh - 145px)',
+      minHeight: '520px',
+      maxWidth: '1200px',
+      margin: '0 auto',
+      overflow: 'hidden',
+      borderRadius: '16px',
+      background: '#f8fafc',
+      border: '1px solid #e2e8f0',
     }}>
-      <div style={{ fontSize: '64px', marginBottom: '20px' }}>🛒</div>
-      <h2 style={{ margin: '0 0 12px', fontSize: '24px', fontWeight: 800, color: '#0f172a' }}>슬병PX</h2>
-      <p style={{ fontSize: '16px', color: '#64748b', lineHeight: 1.6, margin: 0 }}>
-        더 나은 병영 장터 문화를 위해<br />
-        <strong>슬병PX</strong>가 출격 준비 중입니다!<br />
-        <span style={{ fontSize: '14px', opacity: 0.8 }}>(업데이트 예정)</span>
-      </p>
-    </div>
+      {!isLoaded && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#64748b',
+            fontSize: '14px',
+            fontWeight: 600,
+          }}
+        >
+          PX 가이드를 불러오는 중입니다…
+        </div>
+      )}
+
+      <iframe
+        title="슬병 PX 가이드"
+        src={PX_GUIDE_URL}
+        onLoad={() => setIsLoaded(true)}
+        allow="clipboard-read; clipboard-write"
+        style={{
+          position: 'relative',
+          display: 'block',
+          width: '100%',
+          height: '100%',
+          border: 0,
+          background: '#fff',
+          opacity: isLoaded ? 1 : 0,
+          transition: 'opacity 180ms ease',
+        }}
+      />
+
+      <a
+        href={PX_GUIDE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="새 창에서 열기"
+        style={{
+          position: 'absolute',
+          top: '10px',
+          right: '10px',
+          zIndex: 2,
+          padding: '7px 10px',
+          borderRadius: '999px',
+          background: 'rgba(15, 23, 42, 0.82)',
+          color: '#fff',
+          fontSize: '12px',
+          fontWeight: 700,
+          textDecoration: 'none',
+          backdropFilter: 'blur(8px)',
+        }}
+      >
+        새 창에서 열기 ↗
+      </a>
+    </section>
   )
 }

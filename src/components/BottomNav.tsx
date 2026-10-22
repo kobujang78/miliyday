@@ -79,20 +79,11 @@ export default function BottomNav() {
         >
             {navItems.map((item) => {
                 const isActive = item.matchPaths.includes(pathname)
-                const isPX = item.label === '슬병PX'
-
-                const handleTabClick = (e: React.MouseEvent) => {
-                    if (isPX) {
-                        e.preventDefault()
-                        alert('준비 중입니다. (업데이트 예정)')
-                    }
-                }
 
                 return (
                     <Link
                         key={item.href}
-                        href={isPX ? '#' : item.href}
-                        onClick={handleTabClick}
+                        href={item.href}
                         style={{
                             display: 'flex', flexDirection: 'column',
                             alignItems: 'center', justifyContent: 'center',

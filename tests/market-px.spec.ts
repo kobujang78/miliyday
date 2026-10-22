@@ -24,10 +24,17 @@ test('슬병PX 메뉴에서 PX 가이드를 가운데 화면에 표시한다', a
     'src',
     'https://pxguide.zeromorow.chatgpt.site',
   )
-  await expect(page.getByRole('link', { name: '새 창에서 열기' })).toHaveAttribute(
-    'href',
-    'https://pxguide.zeromorow.chatgpt.site',
-  )
+  await expect(page.getByRole('link', { name: '새 창에서 열기' })).toHaveCount(0)
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport)
+    const frame = await page.getByTitle('슬병 PX 가이드').boundingBox()
+    const header = await page.locator('header').boundingBox()
+    const nav = await page.getByRole('navigation', { name: '메인 내비게이션' }).boundingBox()
+    expect(frame!.x).toBe(0)
+    expect(frame!.width).toBe(viewport.width)
+    expect(frame!.y).toBeCloseTo(header!.y + header!.height, 0)
+    expect(frame!.y + frame!.height).toBeCloseTo(nav!.y, 0)
+  }
   await expect
     .poll(() =>
       page.frames().some((frame) =>

@@ -14,6 +14,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
     const isOnboarding = pathname === '/onboarding'
     const isCallback = pathname.startsWith('/auth/')
+    const isMarket = pathname === '/market'
 
     useEffect(() => {
         if (loading) return
@@ -73,9 +74,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     }[headerProfile.branch]) : '#0f172a'
 
     return (
-        <div style={{ minHeight: '100dvh', display: 'flex', flexDirection: 'column', background: '#f0f4ff' }}>
+        <div style={{ minHeight: '100dvh', height: isMarket ? '100dvh' : undefined, paddingBottom: isMarket ? '64px' : undefined, display: 'flex', flexDirection: 'column', background: '#f0f4ff' }}>
             <header style={{
                 position: 'sticky', top: 0, zIndex: 40,
+                flexShrink: 0,
                 background: '#ffffff', borderBottom: '1px solid #e5e7eb',
                 padding: '10px 16px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -140,7 +142,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 )}
             </header>
 
-            <main style={{ flex: 1, padding: '16px 16px 80px', maxWidth: '100%', overflowX: 'hidden' }}>
+            <main style={{ flex: 1, minHeight: isMarket ? 0 : undefined, display: isMarket ? 'flex' : undefined, padding: isMarket ? 0 : '16px 16px 80px', maxWidth: '100%', overflowX: 'hidden' }}>
                 {children}
             </main>
 

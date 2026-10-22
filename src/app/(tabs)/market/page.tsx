@@ -10,14 +10,10 @@ export default function MarketPage() {
     <section style={{
       position: 'relative',
       width: '100%',
-      height: 'calc(100dvh - 145px)',
-      minHeight: '520px',
-      maxWidth: '1200px',
-      margin: '0 auto',
+      flex: 1,
+      minHeight: 0,
       overflow: 'hidden',
-      borderRadius: '16px',
       background: '#f8fafc',
-      border: '1px solid #e2e8f0',
     }}>
       {!isLoaded && (
         <div
@@ -44,7 +40,8 @@ export default function MarketPage() {
         onLoad={() => setIsLoaded(true)}
         allow="clipboard-read; clipboard-write"
         style={{
-          position: 'relative',
+          position: 'absolute',
+          inset: 0,
           display: 'block',
           width: '100%',
           height: '100%',
@@ -55,28 +52,6 @@ export default function MarketPage() {
         }}
       />
 
-      <a
-        href={PX_GUIDE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="새 창에서 열기"
-        style={{
-          position: 'absolute',
-          top: '10px',
-          right: '10px',
-          zIndex: 2,
-          padding: '7px 10px',
-          borderRadius: '999px',
-          background: 'rgba(15, 23, 42, 0.82)',
-          color: '#fff',
-          fontSize: '12px',
-          fontWeight: 700,
-          textDecoration: 'none',
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        새 창에서 열기 ↗
-      </a>
     </section>
   )
 }

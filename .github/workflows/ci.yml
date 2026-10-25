@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || 'https://example.supabase.co' }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'dummy' }}
+
+      # 목(mock) 데이터가 프로덕션 번들에 다시 섞여 들어오는 것을 막는 회귀 방지 장치.
+      # 과거 MockProvider 가 window.fetch 를 전역 패치한 채 배포된 적이 있다.
+      - name: 번들에 목 데이터가 없는지 확인
+        run: |
+          if grep -rl "훈련소에서 생존하는 법" out/ 2>/dev/null; then
+            echo "::error::프로덕션 번들에 목 데이터가 포함되어 있습니다"
+            exit 1
+          fi
+          echo "OK: 목 데이터 없음"

@@ -8,6 +8,7 @@ import {
   loadFeedComments, addFeedComment
 } from '@/lib/shareUtils'
 import { earnContentReward } from '@/lib/pointUtils'
+import type { Visibility } from '@/types/database'
 
 const VISIBILITY_MAP: Record<string, { label: string; icon: string }> = {
   public: { label: '전체공개', icon: '🌐' },
@@ -20,7 +21,6 @@ export default function SharePage() {
 
   // Profile derived data
   const userName = profile?.nickname || profile?.display_name || '사용자'
-  const userAvatar = profile?.avatar_url || ''
   const userBranch = (profile?.branch as Branch) || 'army'
   const enlistDate = profile?.enlist_date || ''
   const userRank = enlistDate ? calcAutoRank(enlistDate, userBranch) : ((profile?.rank_level as RankLevel) || 1)
@@ -30,7 +30,7 @@ export default function SharePage() {
 
   const [showModal, setShowModal] = useState(false)
   const [caption, setCaption] = useState('')
-  const [visibility, setVisibility] = useState<'public' | 'connections' | 'private'>('connections')
+  const [visibility, setVisibility] = useState<Visibility>('connections')
   const [images, setImages] = useState<string[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [pointToast, setPointToast] = useState('')
@@ -471,7 +471,7 @@ export default function SharePage() {
 
             <select
               value={visibility}
-              onChange={e => setVisibility(e.target.value as any)}
+              onChange={e => setVisibility(e.target.value as Visibility)}
               style={{
                 padding: '6px 10px', borderRadius: '8px', border: '1px solid #e2e8f0',
                 background: '#f8fafc', fontSize: '12px', fontWeight: 600, color: '#475569',

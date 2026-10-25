@@ -6,13 +6,14 @@ import { createClient } from '@/lib/supabase'
 import { processInviteReward } from '@/lib/pointUtils'
 import { TERMS_OF_SERVICE, PRIVACY_POLICY, MARKETING_CONSENT } from '@/constants/legal'
 import RankIcon, { RANKS, BRANCHES, type Branch, type RankLevel } from '@/components/RankIcon'
+import type { UserType } from '@/types/database'
 
 export default function OnboardingPage() {
     const { user, profile, isGuest, signInWithOAuth, signInWithEmail, signUpWithEmail, setGuestMode, refreshProfile } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
     const [step, setStep] = useState<'splash' | 'login' | 'userType' | 'profile'>('splash')
-    const [userType, setUserType] = useState<'soldier' | 'girlfriend' | 'friend' | 'family'>('soldier')
+    const [userType, setUserType] = useState<UserType>('soldier')
     const [relationship, setRelationship] = useState('')
     const [authMode, setAuthMode] = useState<'login' | 'signup'>('login')
     const [email, setEmail] = useState('')
@@ -25,6 +26,7 @@ export default function OnboardingPage() {
     const [enlistDate, setEnlistDate] = useState('')
     const [saving, setSaving] = useState(false)
     const [authError, setAuthError] = useState('')
+    const [authNotice, setAuthNotice] = useState('')
     const [inviteCode, setInviteCode] = useState('')
     const [agreeTerms, setAgreeTerms] = useState(false)
     const [agreePrivacy, setAgreePrivacy] = useState(false)
@@ -41,7 +43,9 @@ export default function OnboardingPage() {
             } else {
                 // Determine next step after splash
                 if (profile?.user_type) {
-                    setUserType(profile.user_type as any)
+                    // DB 컬럼은 자유 문자열이라 유니온 밖 값도 이론상 가능하다. 앱 전체가
+                    // user_type 을 이 4개로만 쓰므로 그대로 단언한다(기존 동작 유지).
+                    setUserType(profile.user_type as UserType)
                     if (profile.relationship) setRelationship(profile.relationship)
                     setStep('profile')
                 } else {
@@ -59,9 +63,21 @@ export default function OnboardingPage() {
         return () => clearTimeout(timer)
     }, [user, isGuest, profile, router])
 
-    // Read invite code from URL if present
+    // 초대 링크(/onboarding?invite=MILI-XXXX)로 들어온 경우 코드 자동 입력
+    useEffect(() => {
+        const code = searchParams.get('invite')
+        // 정적 내보내기라 프리렌더 시점엔 쿼리가 비어 있고, 하이드레이션 후에야 URL 값이 들어온다.
+        // 즉 렌더 중 파생이 불가능한 외부 시스템(URL) 동기화이고, 이후엔 사용자가 직접 고치는
+        // 입력값이라 effect 안의 setState 가 구조적으로 맞다.
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        if (code) setInviteCode(code.trim().toUpperCase())
+    }, [searchParams])
 
     // Sync step with auth status (Only when not in splash)
+    // 아래 setStep/setUserType 은 외부 시스템(Supabase 세션·프로필)과 화면 단계를 맞추는
+    // 인증 게이트다. 렌더 중 파생으로 바꾸면 로그인 루프나 게이트 우회 위험이 있어
+    // effect 유지가 맞다. 그래서 이 effect 안에서만 규칙을 끈다.
+    /* eslint-disable react-hooks/set-state-in-effect */
     useEffect(() => {
         if (step === 'splash') return
 
@@ -76,7 +92,7 @@ export default function OnboardingPage() {
 
             // Sync step and user data
             if (profile?.user_type && step === 'userType') {
-                setUserType(profile.user_type as any)
+                setUserType(profile.user_type as UserType)
                 if (profile.relationship) setRelationship(profile.relationship)
                 setStep('profile')
             } else if (step === 'login') {
@@ -90,6 +106,7 @@ export default function OnboardingPage() {
             }
         }
     }, [user, isGuest, profile, router, step])
+    /* eslint-enable react-hooks/set-state-in-effect */
 
     const branchColorMap: Record<Branch, string> = {
         army: '#2d5016', navy: '#1a365d', airforce: '#4a1d96', marines: '#991b1b', katusa: '#967117'
@@ -112,25 +129,40 @@ export default function OnboardingPage() {
             return
         }
         setAuthError('')
+        setAuthNotice('')
         setSaving(true)
-        const { error } = authMode === 'login'
-            ? await signInWithEmail(email, password)
-            : await signUpWithEmail(email, password)
 
+        if (authMode === 'signup') {
+            const { error, needsEmailConfirm } = await signUpWithEmail(email, password)
+            setSaving(false)
+            if (error) {
+                setAuthError(error.message?.includes('already registered')
+                    ? '이미 가입된 이메일입니다. 로그인해주세요.'
+                    : (error.message || '가입에 실패했습니다'))
+                return
+            }
+            if (needsEmailConfirm) {
+                // 세션이 아직 없다. 여기서 온보딩을 진행시키면 profiles 쓰기가 익명 요청이 되어 실패한다.
+                setAuthNotice(`${email} 로 인증 메일을 보냈습니다.\n메일의 링크를 눌러 인증을 완료한 뒤 다시 로그인해주세요.`)
+                setAuthMode('login')
+                setPassword(''); setPasswordConfirm('')
+                return
+            }
+            setStep('userType')
+            return
+        }
+
+        const { error } = await signInWithEmail(email, password)
+
+        setSaving(false)
         if (error) {
             if (error.message?.includes('Invalid login')) {
                 setAuthError('이메일 또는 비밀번호가 올바르지 않습니다')
-            } else if (error.message?.includes('already registered')) {
-                setAuthError('이미 가입된 이메일입니다. 로그인해주세요.')
+            } else if (error.message?.includes('Email not confirmed')) {
+                setAuthError('이메일 인증이 완료되지 않았습니다. 받은 편지함의 인증 메일을 확인해주세요.')
             } else {
                 setAuthError(error.message || '인증에 실패했습니다')
             }
-            setSaving(false)
-        } else {
-            if (authMode === 'signup') {
-                setStep('userType')
-            }
-            setSaving(false)
         }
     }
 
@@ -398,6 +430,16 @@ export default function OnboardingPage() {
                                     />
                                 )}
 
+                                {/* 인증 메일 안내 */}
+                                {authNotice && (
+                                    <div style={{
+                                        padding: '10px 14px', borderRadius: '10px',
+                                        background: '#f0fdf4', border: '1px solid #bbf7d0',
+                                        color: '#15803d', fontSize: '12px', fontWeight: 600,
+                                        whiteSpace: 'pre-wrap', lineHeight: 1.5,
+                                    }}>📮 {authNotice}</div>
+                                )}
+
                                 {/* Error message */}
                                 {authError && (
                                     <div style={{
@@ -459,15 +501,15 @@ export default function OnboardingPage() {
                                 신분에 따라 최적화된 서비스를 제공해 드립니다.
                             </p>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                                {[
+                                {([
                                     { id: 'soldier', label: '현역병', icon: '🎖️', desc: '군 복무 중인 용사' },
                                     { id: 'girlfriend', label: '여자친구', icon: '💝', desc: '든든한 곰신' },
                                     { id: 'family', label: '가족', icon: '🏠', desc: '자랑스러운 아들/형제' },
                                     { id: 'friend', label: '친구', icon: '🤝', desc: '늘 응원하는 전우/친구' },
-                                ].map(t => (
+                                ] as const).map(t => (
                                     <button
                                         key={t.id}
-                                        onClick={() => setUserType(t.id as any)}
+                                        onClick={() => setUserType(t.id)}
                                         style={{
                                             padding: '20px 10px', borderRadius: '16px', border: '2px solid',
                                             borderColor: userType === t.id ? '#2563eb' : '#f1f5f9',

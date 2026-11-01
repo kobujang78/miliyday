@@ -177,9 +177,7 @@ export default function OnboardingPage() {
         try {
             if (user) {
                 const supabase = createClient()
-                const { error } = await supabase.from('profiles').upsert({
-                    id: user.id,
-                    email: user.email || '',
+                const profileFields = {
                     display_name: name.trim(),
                     nickname: finalNickname,
                     branch: userType === 'soldier' ? branch : null,
@@ -193,7 +191,17 @@ export default function OnboardingPage() {
                     marketing_agreed_at: agreeMarketing ? new Date().toISOString() : null,
                     user_type: userType,
                     relationship: userType !== 'soldier' ? relationship : null,
-                })
+                }
+                // PR #4 intentionally denies UPDATE on id/email. Ignore a row
+                // already created by the auth trigger, then update only safe fields.
+                const { error: insertError } = await supabase.from('profiles').upsert({
+                    id: user.id,
+                    email: user.email || '',
+                    ...profileFields,
+                }, { onConflict: 'id', ignoreDuplicates: true })
+                const { error } = insertError
+                    ? { error: insertError }
+                    : await supabase.from('profiles').update(profileFields).eq('id', user.id)
                 if (error) {
                     console.error('Profile save error:', error)
                     alert('저장 중 오류가 발생했습니다')

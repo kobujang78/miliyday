@@ -1,4 +1,5 @@
 \set ON_ERROR_STOP on
+\if :run_content
 -- Task 1: the forged cases intentionally fail against PR #4.
 insert into public.profiles (id, email) values
   ('00000000-0000-0000-0000-000000000001', 'one@example.test'),
@@ -111,5 +112,45 @@ begin
   exception when insufficient_privilege then
     null;
   end;
+end $$;
+reset role;
+\endif
+
+-- Task 2: normal and rejected invite flows.
+insert into public.profiles (id, invite_code) values
+  ('00000000-0000-0000-0000-000000000011', 'INVITE11'),
+  ('00000000-0000-0000-0000-000000000012', 'INVITE12'),
+  ('00000000-0000-0000-0000-000000000013', null);
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000013';
+do $$
+declare v_result jsonb;
+begin
+  v_result := public.redeem_invite_code('NOPE');
+  if v_result->>'reason' <> 'invalid_code' then raise exception 'invalid code was not rejected'; end if;
+  v_result := public.redeem_invite_code('invite11');
+  if not (v_result->>'ok')::boolean or (v_result->>'points')::integer <> 2000 then
+    raise exception 'valid invite reward failed: %', v_result;
+  end if;
+  v_result := public.redeem_invite_code('INVITE12');
+  if v_result->>'reason' <> 'already_redeemed' then raise exception 'repeat invite was not rejected'; end if;
+  if (select points from public.profiles where id = auth.uid()) <> 2000
+     or (select points from public.profiles where id = '00000000-0000-0000-0000-000000000011') <> 1000
+     or (select points from public.profiles where id = '00000000-0000-0000-0000-000000000012') <> 0 then
+    raise exception 'invite balances mismatch';
+  end if;
+  if (select count(*) from public.invite_records where invitee_id = auth.uid()) <> 1
+     or (select count(*) from public.point_transactions where user_id = auth.uid() and type = 'signup_bonus') <> 1 then
+    raise exception 'invite ledger mismatch';
+  end if;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000011';
+do $$
+begin
+  if public.redeem_invite_code('INVITE11')->>'reason' <> 'self_invite' then
+    raise exception 'self invite was not rejected';
+  end if;
 end $$;
 reset role;

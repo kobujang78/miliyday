@@ -96,3 +96,73 @@ end $$;
 
 revoke execute on function public.earn_content_reward(text, uuid) from public, anon;
 grant execute on function public.earn_content_reward(text, uuid) to authenticated;
+
+-- One invitee may redeem one code. Existing duplicates need manual review.
+do $$
+begin
+  if exists (
+    select 1 from public.invite_records
+    group by invitee_id having count(*) > 1
+  ) then
+    raise exception 'duplicate invite redemptions exist; investigate before applying migration';
+  end if;
+end $$;
+
+alter table public.invite_records
+  add constraint invite_records_invitee_id_key unique (invitee_id);
+
+create or replace function public.redeem_invite_code(p_code text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_uid uuid := auth.uid();
+  v_inviter uuid;
+  v_recorded uuid;
+begin
+  if v_uid is null then
+    raise exception 'unauthorized' using errcode = '42501';
+  end if;
+
+  select id into v_inviter from public.profiles
+  where invite_code = upper(btrim(p_code));
+  if v_inviter is null then
+    return jsonb_build_object('ok', false, 'reason', 'invalid_code');
+  end if;
+  if v_inviter = v_uid then
+    return jsonb_build_object('ok', false, 'reason', 'self_invite');
+  end if;
+
+  -- Stable lock order also prevents reciprocal invite deadlocks.
+  perform 1 from public.profiles
+  where id in (v_uid, v_inviter)
+  order by id for update;
+  if not exists (select 1 from public.profiles where id = v_uid) then
+    raise exception 'profile not found' using errcode = '22023';
+  end if;
+  if exists (select 1 from public.invite_records where invitee_id = v_uid) then
+    return jsonb_build_object('ok', false, 'reason', 'already_redeemed');
+  end if;
+
+  insert into public.invite_records (inviter_id, invitee_id)
+  values (v_inviter, v_uid)
+  on conflict (invitee_id) do nothing
+  returning invitee_id into v_recorded;
+  if v_recorded is null then
+    return jsonb_build_object('ok', false, 'reason', 'already_redeemed');
+  end if;
+
+  update public.profiles set invited_by = v_inviter where id = v_uid;
+  insert into public.point_transactions (user_id, amount, type, description)
+  values (v_uid, 2000, 'signup_bonus', '초대코드 가입 보너스'),
+         (v_inviter, 1000, 'invite_reward', '지인 초대 보상');
+  update public.profiles set points = points + 2000 where id = v_uid;
+  update public.profiles set points = points + 1000 where id = v_inviter;
+
+  return jsonb_build_object('ok', true, 'points', 2000);
+end $$;
+
+revoke execute on function public.redeem_invite_code(text) from public, anon;
+grant execute on function public.redeem_invite_code(text) to authenticated;

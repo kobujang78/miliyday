@@ -2,6 +2,7 @@
 create role anon nologin;
 create role authenticated nologin;
 create role service_role nologin;
+create role untrusted nologin;
 create schema auth;
 create function auth.uid() returns uuid language sql stable as $$
   select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid
@@ -34,5 +35,10 @@ create table public.invite_records (
   id uuid primary key default gen_random_uuid(), inviter_id uuid not null references public.profiles(id),
   invitee_id uuid not null references public.profiles(id)
 );
+alter table public.profiles enable row level security;
+create policy profiles_read on public.profiles for select to authenticated using (true);
+create policy profiles_insert on public.profiles for insert to authenticated with check (id = auth.uid());
+create policy profiles_update on public.profiles for update to authenticated
+  using (id = auth.uid()) with check (id = auth.uid());
 grant select, insert, update, delete on all tables in schema public to authenticated;
 grant select on all tables in schema public to anon;

@@ -3,8 +3,8 @@ set -euo pipefail
 
 # Usage: bash supabase/tests/run_points_security.sh [baseline|hardened]
 mode="${1:-hardened}"
-if [[ "$mode" != baseline && "$mode" != invite-baseline && "$mode" != hardened ]]; then
-  echo 'usage: run_points_security.sh [baseline|invite-baseline|hardened]' >&2
+if [[ "$mode" != baseline && "$mode" != invite-baseline && "$mode" != hardened && "$mode" != content-preflight && "$mode" != invite-preflight ]]; then
+  echo 'usage: run_points_security.sh [baseline|invite-baseline|hardened|content-preflight|invite-preflight]' >&2
   exit 2
 fi
 
@@ -22,6 +22,36 @@ psql_test=(psql -X -v ON_ERROR_STOP=1 -h "$db_dir" -p "$db_port" -d postgres)
 "${psql_test[@]}" -f "$root_dir/supabase/tests/fixtures/points_base.sql" >/dev/null
 "${psql_test[@]}" -f "$root_dir/supabase/migrations/20260805090000_server_side_points.sql" >/dev/null
 "${psql_test[@]}" -f "$root_dir/supabase/migrations/20260805090100_admin_role.sql" >/dev/null
+if [[ "$mode" == content-preflight || "$mode" == invite-preflight ]]; then
+  "${psql_test[@]}" -c "insert into public.profiles (id) values
+    ('00000000-0000-0000-0000-000000000071'),
+    ('00000000-0000-0000-0000-000000000072')" >/dev/null
+  if [[ "$mode" == content-preflight ]]; then
+    "${psql_test[@]}" -c "insert into public.point_transactions (user_id, amount, type, reference_id) values
+      ('00000000-0000-0000-0000-000000000071', 50, 'post_reward', '10000000-0000-0000-0000-000000000071'),
+      ('00000000-0000-0000-0000-000000000071', 50, 'post_reward', '10000000-0000-0000-0000-000000000071')" >/dev/null
+  else
+    "${psql_test[@]}" -c "insert into public.invite_records (inviter_id, invitee_id) values
+      ('00000000-0000-0000-0000-000000000071', '00000000-0000-0000-0000-000000000072'),
+      ('00000000-0000-0000-0000-000000000071', '00000000-0000-0000-0000-000000000072')" >/dev/null
+  fi
+  migration="$(find "$root_dir/supabase/migrations" -maxdepth 1 -name '*_harden_points.sql' -print -quit)"
+  if "${psql_test[@]}" -f "$migration" >/dev/null 2>&1; then
+    echo 'migration unexpectedly accepted duplicate history' >&2
+    exit 1
+  fi
+  "${psql_test[@]}" -c "do \$\$ begin
+    if to_regclass('public.point_transactions_content_reward_once') is not null
+       or exists (select 1 from pg_constraint where conname = 'invite_records_invitee_id_key') then
+      raise exception 'failed migration left partial constraints';
+    end if;
+    if (select count(*) from public.point_transactions) + (select count(*) from public.invite_records) <> 2 then
+      raise exception 'duplicate history was modified';
+    end if;
+  end \$\$" >/dev/null
+  echo "$mode: migration refused duplicates without changing history"
+  exit 0
+fi
 if [[ "$mode" == hardened ]]; then
   migration="$(find "$root_dir/supabase/migrations" -maxdepth 1 -name '*_harden_points.sql' -print -quit)"
   if [[ -z "$migration" ]]; then

@@ -103,6 +103,94 @@ begin
 end $$;
 
 reset role;
+
+-- Task 3: privilege boundaries, including the PR #4 profile INSERT bypass.
+do $$
+begin
+  if has_function_privilege('untrusted', 'public.earn_content_reward(text, uuid)', 'EXECUTE')
+     or has_function_privilege('untrusted', 'public.redeem_invite_code(text)', 'EXECUTE') then
+    raise exception 'PUBLIC can execute a reward function';
+  end if;
+  if has_function_privilege('anon', 'public.earn_content_reward(text, uuid)', 'EXECUTE')
+     or has_function_privilege('anon', 'public.redeem_invite_code(text)', 'EXECUTE') then
+    raise exception 'anon can execute a reward function';
+  end if;
+  if exists (
+    select 1 from pg_proc where oid in (
+      'public.earn_content_reward(text, uuid)'::regprocedure,
+      'public.redeem_invite_code(text)'::regprocedure,
+      'public.is_admin()'::regprocedure
+    ) and not ('search_path=""' = any(proconfig))
+  ) then
+    raise exception 'security definer function has unsafe search_path';
+  end if;
+  if has_table_privilege('untrusted', 'public.point_transactions', 'INSERT')
+     or has_table_privilege('untrusted', 'public.daily_point_limits', 'INSERT')
+     or has_table_privilege('untrusted', 'public.invite_records', 'INSERT') then
+    raise exception 'PUBLIC has direct reward table write access';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000001';
+do $$
+begin
+  begin
+    insert into public.point_transactions (user_id, amount, type) values (auth.uid(), 999, 'forged');
+    raise exception 'direct point ledger insert succeeded';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.daily_point_limits (user_id, action_type, action_date, count)
+    values (auth.uid(), 'post_reward', current_date, 3);
+    raise exception 'direct daily limit insert succeeded';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.invite_records (inviter_id, invitee_id)
+    values ('00000000-0000-0000-0000-000000000011', auth.uid());
+    raise exception 'direct invite record insert succeeded';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.profiles set points = 9999 where id = auth.uid();
+    raise exception 'direct points update succeeded';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.profiles set role = 'admin' where id = auth.uid();
+    raise exception 'direct role update succeeded';
+  exception when insufficient_privilege then null; end;
+  update public.profiles set display_name = 'allowed edit' where id = auth.uid();
+  if (select display_name from public.profiles where id = auth.uid()) <> 'allowed edit' then
+    raise exception 'allowed profile update failed';
+  end if;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000099';
+do $$
+begin
+  begin
+    insert into public.profiles (id, email, points, role)
+    values (auth.uid(), 'forged@example.test', 9999, 'admin');
+    raise exception 'protected profile insert succeeded';
+  exception when insufficient_privilege then null; end;
+  if exists (select 1 from public.profiles where id = auth.uid()) then
+    raise exception 'forged profile row was inserted';
+  end if;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '00000000-0000-0000-0000-000000000098';
+insert into public.profiles (id, email, display_name)
+values (auth.uid(), 'safe@example.test', 'safe new user');
+insert into public.profiles (id, email, display_name)
+values (auth.uid(), 'safe@example.test', 'ignored duplicate')
+on conflict (id) do nothing;
+update public.profiles set display_name = 'saved onboarding' where id = auth.uid();
+do $$
+begin
+  if (select display_name from public.profiles where id = auth.uid()) <> 'saved onboarding' then
+    raise exception 'onboarding insert-ignore-then-update failed';
+  end if;
+end $$;
+reset role;
 set role anon;
 do $$
 begin

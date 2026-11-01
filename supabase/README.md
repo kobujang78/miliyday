@@ -1,15 +1,19 @@
 # Supabase 적용 절차
 
-> **이 PR 은 DB 변경이 선행되어야 동작한다.** 코드만 머지하면 포인트 적립과 회원 탈퇴가 실패한다.
-> 아래 순서를 그대로 따를 것.
+> **PR #3 → PR #4 → 포인트 보안 후속 PR 순서로 검토한다.** 이 후속 PR은
+> 운영 DB와 `main`에 아직 적용하지 않는다. DB 변경이 선행되지 않은 앱 배포는
+> 포인트 적립과 회원 탈퇴를 깨뜨릴 수 있다.
 
 ## 0. 사전 준비
 
-**백업을 먼저 뜬다.** Free 플랜은 자동 백업이 없다(대시보드 `LAST BACKUP: No backups`).
+**백업과 복원 가능성을 먼저 확인한다.** 플랜/대시보드의 자동 백업 상태를 직접
+확인하고, 별도 `pg_dump` 백업을 만든 뒤 격리된 DB에 복원 시험을 한다.
 
 ```bash
 # Project Settings > Database > Connection string 에서 얻은 값 사용
 pg_dump "$DATABASE_URL" -Fc -f miliyday-$(date +%Y%m%d).dump
+# 운영 DB가 아닌 격리된 PostgreSQL에서 복원 성공과 주요 테이블 행 수를 확인한다.
+# pg_restore -d "$RESTORE_TEST_DATABASE_URL" miliyday-YYYYMMDD.dump
 ```
 
 현재 상태를 눈으로 확인한다. SQL Editor 에서:
@@ -20,13 +24,24 @@ select proname, pg_get_function_identity_arguments(oid) as args,
        prosecdef as security_definer, proacl::text as acl
 from pg_proc where proname = 'add_points' and pronamespace = 'public'::regnamespace;
 
--- 닉네임으로 관리자 노릇을 하던 계정 (마이그레이션이 role='admin' 으로 승격시킨다)
+-- 기존 관리자 표시 이름 (마이그레이션은 자동 승격하지 않는다)
 select id, email, nickname, display_name from public.profiles
 where nickname = '관리자' or display_name = '관리자';
+
+-- 후속 마이그레이션은 아래 중복이 있으면 삭제하지 않고 중단한다.
+select user_id, type, reference_id, count(*) from public.point_transactions
+where reference_id is not null and type in ('post_reward', 'feed_reward')
+group by user_id, type, reference_id having count(*) > 1;
+select invitee_id, count(*) from public.invite_records
+group by invitee_id having count(*) > 1;
+
+-- PR #4의 첫 마이그레이션이 자동 정리하는 일일 한도 중복도 사전 검토한다.
+select user_id, action_type, action_date, count(*) from public.daily_point_limits
+group by user_id, action_type, action_date having count(*) > 1;
 ```
 
-두 번째 쿼리 결과가 **의도한 계정인지 반드시 확인**하라. 아니라면 마이그레이션의 해당
-`update ... set role = 'admin'` 블록을 지우고, 적용 후 직접 승격시킨다.
+관리자 계정은 결과를 확인한 후 UUID로만 명시 승격한다. 중복 조회 결과가 하나라도
+나오면 운영 데이터를 자동 삭제하거나 재산정하지 말고 적용을 중단한다.
 
 ## 0-1. 이 프로젝트에서 확인된 사항 (2026-08-05 실측)
 
@@ -59,6 +74,7 @@ where id = '5ad159e8-a0b9-43c6-b80b-fd0555a9a1d4';
 |---|---|---|
 | 1 | `migrations/20260805090000_server_side_points.sql` | 포인트 적립을 DB 함수로 이관, `add_points` 실행 권한 회수 |
 | 2 | `migrations/20260805090100_admin_role.sql` | `profiles.role` 도입, 예약 닉네임 제약, 컬럼 단위 UPDATE 권한 |
+| 3 | `migrations/20261101133639_harden_points.sql` | 콘텐츠 소유·중복, 초대 중복, 프로필 INSERT 권한 보완 |
 
 ```bash
 # CLI 를 쓰는 경우
@@ -77,7 +93,11 @@ supabase functions deploy delete-account
 
 ## 3. 코드 배포
 
-이 PR 을 머지한다. Vercel 이 자동 배포한다.
+사전 게이트가 모두 통과한 뒤 PR #3, #4, 후속 PR의 앱 변경을 순서대로 반영한다.
+Vercel Preview는 화면 검토용일 뿐, 운영 DB에 이 SQL을 적용했다는 증거가 아니다.
+운영 DB 마이그레이션 → Edge Function → 앱 배포 순서 사이에는 신규 포인트 적립과
+가입 흐름을 일시 중지하거나 점검 창을 사용한다. 각 단계의 실패 시 다음 단계로
+넘어가지 않는다. **PX 가이드 방문 집계 코드는 변경하지 않는다.**
 
 ## 4. 검증
 
@@ -117,6 +137,10 @@ curl -s -X POST 'https://nxcleinpamivgbpydzoq.supabase.co/rest/v1/rpc/earn_conte
 - [ ] 닉네임을 '관리자'로 변경 시도 → DB 제약으로 거부
 - [ ] 관리자 계정에서만 공지사항 카테고리가 보임
 - [ ] 회원 탈퇴 → 같은 이메일로 재가입 시 **신규 가입**으로 동작 (기존 데이터 없음)
+- [ ] 새 계정 프로필 생성·기존 프로필 온보딩 저장 모두 성공; 브라우저에서 `points`/`role` 직접 INSERT·UPDATE는 거부
+- [ ] NULL/임의/타인 글 ID, 같은 글 연속·동시 청구는 원장·잔액·일일 카운터 불변
+- [ ] 서로 다른 초대코드를 같은 계정에서 동시 청구해도 초대 기록과 양쪽 보상이 한 번만 생성
+- [ ] 병사 연동 신청 수락·해제, 게시판·피드, 관리자 기능, 계정 삭제의 실제 로그인 흐름 점검
 
 ### 4-3. 원장과 잔액이 맞는지
 
@@ -135,28 +159,18 @@ having p.points <> coalesce(sum(t.amount), 0);
 
 ## 롤백
 
-```sql
--- 함수 권한 원복
-do $$ declare r record; begin
-  for r in select oid::regprocedure::text as sig from pg_proc
-           where proname = 'add_points' and pronamespace = 'public'::regnamespace
-  loop execute format('grant execute on function %s to anon, authenticated', r.sig); end loop;
-end $$;
-
-drop function if exists public.earn_content_reward(text, uuid);
-drop function if exists public.redeem_invite_code(text);
-grant update on public.profiles to authenticated;
-grant insert, update, delete on public.point_transactions to authenticated;
-```
-
-**되돌릴 수 없는 것**: `daily_point_limits` 의 UNIQUE 제약을 만들면서 중복 행을 삭제한다.
-`profiles.role` 컬럼 추가와 닉네임 제약은 되돌릴 수 있지만, 제약 위반 행이 있으면
-제약 생성 자체가 실패하므로 적용 전에 위 사전 조회로 확인할 것.
+이전의 `add_points` 익명 실행이나 포인트 원장 직접 쓰기 권한을 다시 부여하는
+롤백은 **금지**한다. 장애가 나면 우선 앱의 해당 쓰기 경로를 중지하고, 시점·영향
+범위를 기록한 뒤 검증된 백업을 격리 DB에 복원해 데이터 차이를 확인한다.
+운영 복원은 최근 정상 데이터 손실 위험이 있으므로 별도 승인과 복구 계획 후 진행한다.
+앱/Edge Function은 DB 스키마와 호환되는 버전으로 함께 되돌린다. PR #4의
+`daily_point_limits` 중복 삭제는 백업 없이는 복구할 수 없다.
 
 ## 남은 후속 작업
 
 - `acceptConnectionRequest` 가 클라이언트에서 **타인(신청자)의 profiles 행을 UPDATE** 한다.
   `profiles` UPDATE 정책이 본인 행으로 제한되어 있다면 연동 수락이 조용히 실패한다.
-  `accept_connection_request` RPC 로 옮겨야 한다.
+  `accept_connection_request` RPC 로 옮겨야 한다. 실제 가입 계정 두 개로 수락
+  성공을 확인하거나 이 회귀를 별도 해결하기 전에는 운영 배포를 차단한다.
 - 좋아요/댓글 카운터를 클라이언트가 계산해 UPDATE 한다. DB 트리거로 옮길 것.
 - 이미지가 base64 로 DB 에 저장된다. Storage 로 이전할 것.

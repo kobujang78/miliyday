@@ -1,4 +1,6 @@
 -- Follow-up to PR #4. Reject preexisting duplicate rewards; never erase live data.
+begin;
+
 do $$
 begin
   if exists (
@@ -166,3 +168,35 @@ end $$;
 
 revoke execute on function public.redeem_invite_code(text) from public, anon;
 grant execute on function public.redeem_invite_code(text) to authenticated;
+
+-- PR #4 limited UPDATE but left INSERT unrestricted. A new authenticated user
+-- could otherwise create their own row with points=9999 or role='admin'.
+revoke insert on public.profiles from public, anon, authenticated;
+grant insert (
+  id, email, display_name, nickname, nickname_updated_at,
+  branch, rank_level, enlist_date, avatar_url,
+  marketing_agreed, marketing_agreed_at,
+  user_type, relationship,
+  privacy_policy_agreed, privacy_policy_agreed_at, terms_agreed
+) on public.profiles to authenticated;
+
+revoke insert, update, delete on public.point_transactions from public, anon, authenticated;
+revoke insert, update, delete on public.daily_point_limits from public, anon, authenticated;
+revoke insert, update, delete on public.invite_records from public, anon, authenticated;
+
+-- The admin helper is also SECURITY DEFINER, so it needs the same safe path.
+create or replace function public.is_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = ''
+as $$
+  select exists (
+    select 1 from public.profiles where id = auth.uid() and role = 'admin'
+  );
+$$;
+revoke execute on function public.is_admin() from public, anon;
+grant execute on function public.is_admin() to authenticated;
+
+commit;

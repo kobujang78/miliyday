@@ -3,6 +3,7 @@
 import { useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { getSafeAuthRedirect } from '@/lib/authRedirect'
 
 function CallbackContent() {
     const router = useRouter()
@@ -11,7 +12,7 @@ function CallbackContent() {
     useEffect(() => {
         const handleCallback = async () => {
             const code = searchParams.get('code')
-            const next = searchParams.get('next') ?? '/'
+            const next = getSafeAuthRedirect(searchParams.get('next'))
 
             if (!code) {
                 const supabase = createClient()
